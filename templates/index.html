@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <div class="home-card">
+        <h1>Plataforma Inteligente IDS</h1>
+        <p>Sistema de detección de intrusiones y gestión de servicios en la nube.</p>
+        <a href="{{ url_for('login') }}" class="btn-primary">Ir al Login</a>
+    </div>
+</div>
+{% endblock %}

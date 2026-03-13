@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="login-page">
+    <div class="login-card">
+        <div class="login-left">
+            <h2>Bienvenido</h2>
+            <p>Accede a la plataforma para monitorear eventos, alertas y modelos de detección.</p>
+            <ul>
+                <li>Monitoreo de eventos de red</li>
+                <li>Gestión de usuarios y roles</li>
+                <li>Visualización de alertas</li>
+                <li>Control de servicios</li>
+            </ul>
+        </div>
+
+        <div class="login-right">
+            <h2>Iniciar sesión</h2>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <p class="login-message">{{ message }}</p>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="input-group">
+                    <label for="username">Usuario o correo</label>
+                    <input type="text" id="username" name="username" placeholder="Ingrese su usuario" required>
+                </div>
+
+                <div class="input-group">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" name="password" placeholder="Ingrese su contraseña" required>
+                </div>
+
+                <div class="login-options">
+                    <label>
+                        <input type="checkbox" id="rememberMe" name="rememberMe"> Recordarme
+                    </label>
+                    <a href="{{ url_for('forgot_password') }}">¿Olvidaste tu contraseña?</a>
+                </div>
+
+                <button type="submit" class="btn-primary">Ingresar</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

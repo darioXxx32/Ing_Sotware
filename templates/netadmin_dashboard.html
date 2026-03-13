@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel NetAdmin{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card netadmin-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">NetAdmin</p>
+                <h1>Centro de administración de red</h1>
+                <p class="dashboard-subtitle">
+                    Bienvenido, {{ username }}. Supervisa reglas, solicitudes de firewall y el estado operativo de los collectors.
+                </p>
+            </div>
+            <div class="status-badge">Activo</div>
+        </div>
+
+        <div class="dashboard-grid">
+            <a href="{{ url_for('list_firewall_requests') }}" class="dashboard-action">
+                <div class="action-icon">🧱</div>
+                <div>
+                    <h3>Solicitudes de firewall</h3>
+                    <p>Revisar peticiones de bloqueo, cuarentena y cambios pendientes.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('list_firewall_requests') }}" class="dashboard-action">
+                <div class="action-icon">🛠️</div>
+                <div>
+                    <h3>Aplicar reglas</h3>
+                    <p>Gestionar políticas activas y ejecutar acciones de contención.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('collectors_status') }}" class="dashboard-action">
+                <div class="action-icon">📶</div>
+                <div>
+                    <h3>Estado de collectors</h3>
+                    <p>Consultar disponibilidad, conectividad y salud de los agentes.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('logout') }}" class="dashboard-action logout-card">
+                <div class="action-icon">⏻</div>
+                <div>
+                    <h3>Cerrar sesión</h3>
+                    <p>Salir de forma segura del entorno de administración de red.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

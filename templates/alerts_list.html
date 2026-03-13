@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Alerts{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card soc-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">SOC Analyst</p>
+                <h1>Alert monitoring</h1>
+                <p class="dashboard-subtitle">
+                    Review, filter and inspect alerts generated from suspicious or malicious events.
+                </p>
+            </div>
+        </div>
+
+        <form method="GET" action="{{ url_for('list_alerts') }}" class="filters-grid">
+            <div class="input-group">
+                <label for="severity">Severity</label>
+                <select id="severity" name="severity" class="input-select">
+                    <option value="">All</option>
+                    <option value="low" {% if severity == 'low' %}selected{% endif %}>low</option>
+                    <option value="medium" {% if severity == 'medium' %}selected{% endif %}>medium</option>
+                    <option value="high" {% if severity == 'high' %}selected{% endif %}>high</option>
+                    <option value="critical" {% if severity == 'critical' %}selected{% endif %}>critical</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="status">Status</label>
+                <select id="status" name="status" class="input-select">
+                    <option value="">All</option>
+                    <option value="open" {% if status == 'open' %}selected{% endif %}>open</option>
+                    <option value="closed" {% if status == 'closed' %}selected{% endif %}>closed</option>
+                </select>
+            </div>
+
+            <div class="filters-actions">
+                <button type="submit" class="btn-primary">Apply filters</button>
+                <a href="{{ url_for('list_alerts') }}" class="btn-primary" style="background:#475569;">Clear</a>
+            </div>
+        </form>
+
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Created</th>
+                        <th>Title</th>
+                        <th>Severity</th>
+                        <th>Status</th>
+                        <th>Source IP</th>
+                        <th>Destination IP</th>
+                        <th>Protocol</th>
+                        <th>Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in alerts %}
+                    <tr>
+                        <td>{{ alert.id }}</td>
+                        <td>{{ alert.created_at }}</td>
+                        <td>{{ alert.title }}</td>
+                        <td>{{ alert.severity }}</td>
+                        <td>{{ alert.status }}</td>
+                        <td>{{ alert.source_ip }}</td>
+                        <td>{{ alert.dest_ip }}</td>
+                        <td>{{ alert.protocol }}</td>
+                        <td>
+                            <a href="{{ url_for('alert_detail', alert_id=alert.id) }}" class="btn-small">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('soc_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card auditor-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Auditor</p>
+                <h1>Audit log</h1>
+                <p class="dashboard-subtitle">
+                    Review system actions, access traces and administrative operations.
+                </p>
+            </div>
+        </div>
+
+        <form method="GET" action="{{ url_for('audit_log_list') }}" class="filters-grid audit-filters-grid">
+            <div class="input-group">
+                <label for="action">Action</label>
+                <input type="text" id="action" name="action" value="{{ action }}">
+            </div>
+
+            <div class="input-group">
+                <label for="entity_type">Entity type</label>
+                <input type="text" id="entity_type" name="entity_type" value="{{ entity_type }}">
+            </div>
+
+            <div class="input-group">
+                <label for="entity_id">Entity ID</label>
+                <input type="text" id="entity_id" name="entity_id" value="{{ entity_id }}">
+            </div>
+
+            <div class="filters-actions">
+                <button type="submit" class="btn-primary">Apply filters</button>
+                <a href="{{ url_for('audit_log_list') }}" class="btn-primary" style="background:#475569;">Clear</a>
+            </div>
+        </form>
+
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Date</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Entity</th>
+                        <th>Entity ID</th>
+                        <th>IP</th>
+                        <th>Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>{{ log.id }}</td>
+                        <td>{{ log.created_at }}</td>
+                        <td>{{ log.username if log.username else 'System' }}</td>
+                        <td>{{ log.action }}</td>
+                        <td>{{ log.entity_type }}</td>
+                        <td>{{ log.entity_id }}</td>
+                        <td>{{ log.ip_address }}</td>
+                        <td>
+                            <a href="{{ url_for('audit_log_detail', log_id=log.id) }}" class="btn-small">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('auditor_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

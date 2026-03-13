@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Model Requests{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card ml-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">ML Engineer</p>
+                <h1>Promote requests</h1>
+                <p class="dashboard-subtitle">
+                    Review requests submitted for model promotion.
+                </p>
+            </div>
+        </div>
+
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Model</th>
+                        <th>Version</th>
+                        <th>Requested by</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Reviewed by</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests_data %}
+                    <tr>
+                        <td>{{ req.id }}</td>
+                        <td>{{ req.model_name }}</td>
+                        <td>{{ req.model_version }}</td>
+                        <td>{{ req.requested_by_name }}</td>
+                        <td>{{ req.request_type }}</td>
+                        <td>{{ req.status }}</td>
+                        <td>{{ req.created_at }}</td>
+                        <td>{{ req.reviewed_by_name if req.reviewed_by_name else 'Pending' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('ml_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

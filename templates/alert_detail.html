@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Alert Detail{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card soc-panel" style="max-width:950px;">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">SOC Analyst</p>
+                <h1>Alert #{{ alert.id }}</h1>
+                <p class="dashboard-subtitle">
+                    Detailed information about the selected alert and its related event.
+                </p>
+            </div>
+            <div class="status-badge">{{ alert.status }}</div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span>Title</span>
+                <strong>{{ alert.title }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Severity</span>
+                <strong>{{ alert.severity }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Created at</span>
+                <strong>{{ alert.created_at }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Status</span>
+                <strong>{{ alert.status }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Source IP</span>
+                <strong>{{ alert.source_ip }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Destination IP</span>
+                <strong>{{ alert.dest_ip }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Protocol</span>
+                <strong>{{ alert.protocol }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Label</span>
+                <strong>{{ alert.label }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Score</span>
+                <strong>{{ alert.score }}</strong>
+            </div>
+        </div>
+
+        <div class="raw-log-box">
+            <h3>Description</h3>
+            <p>{{ alert.description }}</p>
+        </div>
+
+        <div class="raw-log-box">
+            <h3>Raw log</h3>
+            <pre>{{ alert.raw_log }}</pre>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:20px;">
+            <a href="{{ url_for('list_alerts') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back to alerts</a>
+
+            {% if alert.status != 'closed' %}
+            <form method="POST" action="{{ url_for('close_alert', alert_id=alert.id) }}">
+                <button type="submit" class="btn-danger-small" style="padding:12px 20px;">Close alert</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

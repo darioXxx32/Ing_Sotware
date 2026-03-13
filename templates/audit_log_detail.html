@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Audit Log Detail{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card auditor-panel" style="max-width:900px;">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Auditor</p>
+                <h1>Audit entry #{{ log.id }}</h1>
+                <p class="dashboard-subtitle">
+                    Detailed information for the selected audit record.
+                </p>
+            </div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span>Date</span>
+                <strong>{{ log.created_at }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>User</span>
+                <strong>{{ log.username if log.username else 'System' }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Action</span>
+                <strong>{{ log.action }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Entity type</span>
+                <strong>{{ log.entity_type }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Entity ID</span>
+                <strong>{{ log.entity_id }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>IP address</span>
+                <strong>{{ log.ip_address }}</strong>
+            </div>
+        </div>
+
+        <div class="raw-log-box">
+            <h3>Details</h3>
+            <p>{{ log.details }}</p>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('audit_log_list') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back to audit log</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel de Administrador{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card admin-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Administrador</p>
+                <h1>Panel de control</h1>
+                <p class="dashboard-subtitle">
+                    Bienvenido, {{ username }}. Gestiona usuarios, eventos y configuraciones generales del sistema.
+                </p>
+            </div>
+            <div class="status-badge">Activo</div>
+        </div>
+
+        <div class="dashboard-grid">
+            <a href="{{ url_for('manage_users') }}" class="dashboard-action">
+                <div class="action-icon">👤</div>
+                <div>
+                    <h3>Gestionar usuarios</h3>
+                    <p>Crear, editar, activar, desactivar y administrar roles del sistema.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('list_events') }}" class="dashboard-action">
+                <div class="action-icon">📡</div>
+                <div>
+                    <h3>Ver eventos</h3>
+                    <p>Consultar actividad reciente, tráfico registrado y eventos detectados.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('admin_model_requests') }}" class="dashboard-action"></a>
+                <div class="action-icon">⚙️</div>
+                <div>
+                    <h3>Configurar sistema</h3>
+                    <p>Ajustar parámetros, umbrales y configuraciones generales de la plataforma.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('logout') }}" class="dashboard-action logout-card">
+                <div class="action-icon">⏻</div>
+                <div>
+                    <h3>Cerrar sesión</h3>
+                    <p>Salir de forma segura del panel administrativo.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

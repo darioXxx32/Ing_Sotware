@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Firewall Requests{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card netadmin-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">NetAdmin</p>
+                <h1>Firewall requests</h1>
+                <p class="dashboard-subtitle">
+                    Review, validate and apply containment or blocking requests.
+                </p>
+            </div>
+        </div>
+
+        <form method="GET" action="{{ url_for('list_firewall_requests') }}" class="filters-grid">
+            <div class="input-group">
+                <label for="status">Status</label>
+                <select id="status" name="status" class="input-select">
+                    <option value="">All</option>
+                    <option value="requested" {% if status == 'requested' %}selected{% endif %}>requested</option>
+                    <option value="validated" {% if status == 'validated' %}selected{% endif %}>validated</option>
+                    <option value="applied" {% if status == 'applied' %}selected{% endif %}>applied</option>
+                </select>
+            </div>
+
+            <div class="filters-actions">
+                <button type="submit" class="btn-primary">Apply filters</button>
+                <a href="{{ url_for('list_firewall_requests') }}" class="btn-primary" style="background:#475569;">Clear</a>
+            </div>
+        </form>
+
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Requested by</th>
+                        <th>Source IP</th>
+                        <th>Destination IP</th>
+                        <th>Port</th>
+                        <th>Protocol</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests_data %}
+                    <tr>
+                        <td>{{ req.id }}</td>
+                        <td>{{ req.requested_by_name }}</td>
+                        <td>{{ req.source_ip }}</td>
+                        <td>{{ req.dest_ip }}</td>
+                        <td>{{ req.port }}</td>
+                        <td>{{ req.protocol }}</td>
+                        <td>{{ req.status }}</td>
+                        <td>{{ req.created_at }}</td>
+                        <td class="actions-cell">
+                            {% if req.status == 'requested' %}
+                            <form method="POST" action="{{ url_for('validate_firewall_request', request_id=req.id) }}" style="display:inline;">
+                                <button type="submit" class="btn-warning-small">Validate</button>
+                            </form>
+                            {% elif req.status == 'validated' %}
+                            <form method="POST" action="{{ url_for('apply_firewall_request', request_id=req.id) }}" style="display:inline;">
+                                <button type="submit" class="btn-small">Apply</button>
+                            </form>
+                            {% else %}
+                            <span style="color:#86efac;">Done</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('netadmin_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

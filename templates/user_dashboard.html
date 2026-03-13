@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <div class="home-card">
+        <h1>Dashboard</h1>
+        <p>Bienvenido, {{ username }}.</p>
+        <p>Tu rol es: <strong>{{ role }}</strong></p>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('logout') }}" class="btn-primary" style="display:block; background:#dc2626;">Cerrar sesión</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

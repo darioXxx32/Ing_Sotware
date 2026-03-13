@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Create User{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card" style="max-width:850px;">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Administrator</p>
+                <h1>Create user</h1>
+                <p class="dashboard-subtitle">Register a new member in the system.</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('create_user') }}">
+            <div class="input-group">
+                <label for="username">Username</label>
+                <input type="text" name="username" id="username" required>
+            </div>
+
+            <div class="input-group">
+                <label for="email">Email</label>
+                <input type="email" name="email" id="email" required>
+            </div>
+
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="text" name="password" id="password" required>
+            </div>
+
+            <div class="input-group">
+                <label for="role_id">Role</label>
+                <select name="role_id" id="role_id" required class="input-select">
+                    {% for role in roles %}
+                        <option value="{{ role.id }}">{{ role.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <h3 style="margin:25px 0 10px 0;">Security questions</h3>
+            <p class="dashboard-subtitle" style="margin-bottom:20px;">Provide at least 3 answers.</p>
+
+            {% for question in security_questions %}
+            <div class="input-group">
+                <label for="question_{{ question.id }}">{{ question.question_text }}</label>
+                <input type="text" name="question_{{ question.id }}" id="question_{{ question.id }}">
+            </div>
+            {% endfor %}
+
+            <div style="display:flex; gap:12px; margin-top:20px;">
+                <button type="submit" class="btn-primary">Save user</button>
+                <a href="{{ url_for('manage_users') }}" class="btn-primary" style="background:#475569;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

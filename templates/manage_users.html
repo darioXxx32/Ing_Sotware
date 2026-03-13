@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Administrator</p>
+                <h1>User management</h1>
+                <p class="dashboard-subtitle">Manage accounts, permissions and system access.</p>
+            </div>
+            <a href="{{ url_for('create_user') }}" class="btn-primary" style="width:auto; padding:12px 20px;">+ New user</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="login-message">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Active</th>
+                        <th>Created</th>
+                        <th>Last login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.role_name }}</td>
+                        <td>{{ "Yes" if user.is_active else "No" }}</td>
+                        <td>{{ user.created_at }}</td>
+                        <td>{{ user.last_login if user.last_login else "Never" }}</td>
+                        <td class="actions-cell">
+                            <a href="{{ url_for('edit_user', user_id=user.id) }}" class="btn-small">Edit</a>
+
+                            <form method="POST" action="{{ url_for('toggle_user_status', user_id=user.id) }}" style="display:inline;">
+                                <button type="submit" class="btn-warning-small">
+                                    {{ "Deactivate" if user.is_active else "Activate" }}
+                                </button>
+                            </form>
+
+                            {% if session.username == 'dario' %}
+                            <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;">
+                                <button type="submit" class="btn-danger-small">Delete</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back to dashboard</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Event Detail{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card" style="max-width:900px;">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Event detail</p>
+                <h1>Event #{{ event.id }}</h1>
+                <p class="dashboard-subtitle">
+                    Detailed view of the selected network event.
+                </p>
+            </div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span>Timestamp</span>
+                <strong>{{ event.timestamp }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Source IP</span>
+                <strong>{{ event.source_ip }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Destination IP</span>
+                <strong>{{ event.dest_ip }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Source Port</span>
+                <strong>{{ event.source_port }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Destination Port</span>
+                <strong>{{ event.dest_port }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Protocol</span>
+                <strong>{{ event.protocol }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Size</span>
+                <strong>{{ event.size }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Label</span>
+                <strong>{{ event.label }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Score</span>
+                <strong>{{ event.score }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Status</span>
+                <strong>{{ event.status }}</strong>
+            </div>
+        </div>
+
+        <div class="raw-log-box">
+            <h3>Raw log</h3>
+            <pre>{{ event.raw_log }}</pre>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('list_events') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back to events</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

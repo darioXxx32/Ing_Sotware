@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Model Detail{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card ml-panel" style="max-width:900px;">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">ML Engineer</p>
+                <h1>{{ model.name }} - {{ model.version }}</h1>
+                <p class="dashboard-subtitle">
+                    Detailed information and metrics of the selected model.
+                </p>
+            </div>
+            <div class="status-badge">{{ "Active" if model.is_active else "Inactive" }}</div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item"><span>Model type</span><strong>{{ model.model_type }}</strong></div>
+            <div class="detail-item"><span>Dataset</span><strong>{{ model.dataset_name }}</strong></div>
+            <div class="detail-item"><span>Accuracy</span><strong>{{ model.accuracy }}</strong></div>
+            <div class="detail-item"><span>Precision</span><strong>{{ model.precision_score }}</strong></div>
+            <div class="detail-item"><span>Recall</span><strong>{{ model.recall_score }}</strong></div>
+            <div class="detail-item"><span>F1 Score</span><strong>{{ model.f1_score }}</strong></div>
+            <div class="detail-item"><span>Created by</span><strong>{{ model.created_by_name }}</strong></div>
+            <div class="detail-item"><span>Created at</span><strong>{{ model.created_at }}</strong></div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:20px;">
+            <a href="{{ url_for('list_models') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+
+            <form method="POST" action="{{ url_for('create_model_request', model_id=model.id) }}">
+                <button type="submit" class="btn-warning-small" style="padding:12px 20px;">Request promote</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

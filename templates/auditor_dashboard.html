@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel Auditor{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card auditor-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Auditor</p>
+                <h1>Centro de auditoría y cumplimiento</h1>
+                <p class="dashboard-subtitle">
+                    Bienvenido, {{ username }}. Supervisa registros, exporta evidencias y verifica las políticas de retención del sistema.
+                </p>
+            </div>
+            <div class="status-badge">Activo</div>
+        </div>
+
+        <div class="dashboard-grid">
+            <a href="{{ url_for('audit_log_list') }}" class="dashboard-action">
+                <div class="action-icon">📋</div>
+                <div>
+                    <h3>Ver auditoría</h3>
+                    <p>Consultar acciones del sistema, accesos y trazabilidad de operaciones.</p>
+                </div>
+            </a>
+
+            <a href="#" class="dashboard-action">
+                <div class="action-icon">📑</div>
+                <div>
+                    <h3>Exportar reportes</h3>
+                    <p>Generar reportes en formatos estructurados para revisión y evidencia.</p>
+                </div>
+            </a>
+
+            <a href="#" class="dashboard-action">
+                <div class="action-icon">🗄️</div>
+                <div>
+                    <h3>Ver retención</h3>
+                    <p>Revisar políticas de conservación, históricos y cumplimiento normativo.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('logout') }}" class="dashboard-action logout-card">
+                <div class="action-icon">⏻</div>
+                <div>
+                    <h3>Cerrar sesión</h3>
+                    <p>Salir de forma segura del entorno de auditoría.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Service Status{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card operator-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Operator</p>
+                <h1>Estado de servicios</h1>
+                <p class="dashboard-subtitle">
+                    Bienvenido, {{ username }}. Aquí puedes revisar el estado actual de los servicios principales de la plataforma.
+                </p>
+            </div>
+            <div class="status-badge">Monitor</div>
+        </div>
+
+        <div class="dashboard-grid">
+            {% for service in services %}
+            <div class="dashboard-action">
+                <div class="action-icon">
+                    {% if service.status == 'online' %}
+                        ✅
+                    {% elif service.status == 'offline' %}
+                        ❌
+                    {% else %}
+                        ⏳
+                    {% endif %}
+                </div>
+                <div>
+                    <h3>{{ service.name }}</h3>
+                    <p>{{ service.description }}</p>
+                    <p style="margin-top:8px;">
+                        <strong>Status:</strong>
+                        {% if service.status == 'online' %}
+                            <span style="color:#86efac;">Online</span>
+                        {% elif service.status == 'offline' %}
+                            <span style="color:#fca5a5;">Offline</span>
+                        {% else %}
+                            <span style="color:#fcd34d;">Pending</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('operator_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back to operator panel</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

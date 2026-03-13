@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Models{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card ml-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">ML Engineer</p>
+                <h1>Registered models</h1>
+                <p class="dashboard-subtitle">
+                    Review model versions and their evaluation metrics.
+                </p>
+            </div>
+            <a href="{{ url_for('create_model') }}" class="btn-primary" style="width:auto; padding:12px 20px;">+ New model</a>
+        </div>
+
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Version</th>
+                        <th>Type</th>
+                        <th>Dataset</th>
+                        <th>Accuracy</th>
+                        <th>F1</th>
+                        <th>Active</th>
+                        <th>Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for model in models %}
+                    <tr>
+                        <td>{{ model.id }}</td>
+                        <td>{{ model.name }}</td>
+                        <td>{{ model.version }}</td>
+                        <td>{{ model.model_type }}</td>
+                        <td>{{ model.dataset_name }}</td>
+                        <td>{{ model.accuracy }}</td>
+                        <td>{{ model.f1_score }}</td>
+                        <td>{{ "Yes" if model.is_active else "No" }}</td>
+                        <td>
+                            <a href="{{ url_for('model_detail', model_id=model.id) }}" class="btn-small">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('ml_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

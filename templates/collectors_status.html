@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Collectors Status{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card netadmin-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">NetAdmin</p>
+                <h1>Estado de collectors</h1>
+                <p class="dashboard-subtitle">
+                    Bienvenido, {{ username }}. Revisa la disponibilidad, actividad reciente y salud operativa de los collectors desplegados.
+                </p>
+            </div>
+            <div class="status-badge">Monitor</div>
+        </div>
+
+        <div class="dashboard-grid">
+            {% for collector in collectors %}
+            <div class="dashboard-action">
+                <div class="action-icon">
+                    {% if collector.status == 'online' %}
+                        ✅
+                    {% elif collector.status == 'warning' %}
+                        ⚠️
+                    {% else %}
+                        ❌
+                    {% endif %}
+                </div>
+                <div>
+                    <h3>{{ collector.name }}</h3>
+                    <p>{{ collector.description }}</p>
+
+                    <p style="margin-top:10px;"><strong>Type:</strong> {{ collector.type }}</p>
+                    <p><strong>Location:</strong> {{ collector.location }}</p>
+                    <p><strong>Last seen:</strong> {{ collector.last_seen }}</p>
+                    <p>
+                        <strong>Status:</strong>
+                        {% if collector.status == 'online' %}
+                            <span style="color:#86efac;">Online</span>
+                        {% elif collector.status == 'warning' %}
+                            <span style="color:#fcd34d;">Warning</span>
+                        {% else %}
+                            <span style="color:#fca5a5;">Offline</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('netadmin_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}Events{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Events</p>
+                <h1>Event monitoring</h1>
+                <p class="dashboard-subtitle">
+                    Review, filter and inspect captured network events.
+                </p>
+            </div>
+        </div>
+
+        <form method="GET" action="{{ url_for('list_events') }}" class="filters-grid">
+            <div class="input-group">
+                <label for="source_ip">Source IP</label>
+                <input type="text" id="source_ip" name="source_ip" value="{{ source_ip }}">
+            </div>
+
+            <div class="input-group">
+                <label for="dest_ip">Destination IP</label>
+                <input type="text" id="dest_ip" name="dest_ip" value="{{ dest_ip }}">
+            </div>
+
+            <div class="input-group">
+                <label for="protocol">Protocol</label>
+                <select id="protocol" name="protocol" class="input-select">
+                    <option value="">All</option>
+                    <option value="TCP" {% if protocol == 'TCP' %}selected{% endif %}>TCP</option>
+                    <option value="UDP" {% if protocol == 'UDP' %}selected{% endif %}>UDP</option>
+                    <option value="ICMP" {% if protocol == 'ICMP' %}selected{% endif %}>ICMP</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="label">Label</label>
+                <select id="label" name="label" class="input-select">
+                    <option value="">All</option>
+                    <option value="normal" {% if label == 'normal' %}selected{% endif %}>normal</option>
+                    <option value="suspicious" {% if label == 'suspicious' %}selected{% endif %}>suspicious</option>
+                    <option value="attack" {% if label == 'attack' %}selected{% endif %}>attack</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="status">Status</label>
+                <select id="status" name="status" class="input-select">
+                    <option value="">All</option>
+                    <option value="new" {% if status == 'new' %}selected{% endif %}>new</option>
+                    <option value="reviewed" {% if status == 'reviewed' %}selected{% endif %}>reviewed</option>
+                    <option value="closed" {% if status == 'closed' %}selected{% endif %}>closed</option>
+                </select>
+            </div>
+
+            <div class="filters-actions">
+                <button type="submit" class="btn-primary">Apply filters</button>
+                <a href="{{ url_for('list_events') }}" class="btn-primary" style="background:#475569;">Clear</a>
+            </div>
+        </form>
+
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Timestamp</th>
+                        <th>Source IP</th>
+                        <th>Destination IP</th>
+                        <th>Protocol</th>
+                        <th>Label</th>
+                        <th>Score</th>
+                        <th>Status</th>
+                        <th>Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                    <tr>
+                        <td>{{ event.id }}</td>
+                        <td>{{ event.timestamp }}</td>
+                        <td>{{ event.source_ip }}</td>
+                        <td>{{ event.dest_ip }}</td>
+                        <td>{{ event.protocol }}</td>
+                        <td>{{ event.label }}</td>
+                        <td>{{ event.score }}</td>
+                        <td>{{ event.status }}</td>
+                        <td>
+                            <a href="{{ url_for('event_detail', event_id=event.id) }}" class="btn-small">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('back_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel ML Engineer{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card ml-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">ML Engineer</p>
+                <h1>Centro de modelos y métricas</h1>
+                <p class="dashboard-subtitle">
+                    Bienvenido, {{ username }}. Administra modelos, revisa métricas y controla promociones hacia producción.
+                </p>
+            </div>
+            <div class="status-badge">Activo</div>
+        </div>
+
+        <div class="dashboard-grid">
+            <a href="{{ url_for('create_model') }}" class="dashboard-action">
+                <div class="action-icon">🧠</div>
+                <div>
+                    <h3>Registrar modelo</h3>
+                    <p>Registrar nuevas versiones y cargar metadatos del modelo.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('list_models') }}" class="dashboard-action">
+                <div class="action-icon">📈</div>
+                <div>
+                    <h3>Ver métricas</h3>
+                    <p>Consultar rendimiento, precisión y resultados de validación.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('list_model_requests') }}" class="dashboard-action">
+                <div class="action-icon">🚀</div>
+                <div>
+                    <h3>Solicitudes de promote</h3>
+                    <p>Revisar solicitudes de promoción y despliegue de modelos.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('logout') }}" class="dashboard-action logout-card">
+                <div class="action-icon">⏻</div>
+                <div>
+                    <h3>Cerrar sesión</h3>
+                    <p>Salir de forma segura del entorno de ingeniería de modelos.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

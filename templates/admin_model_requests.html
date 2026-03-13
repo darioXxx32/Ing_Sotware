@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Model Requests{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card admin-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Administrador</p>
+                <h1>Solicitudes de modelos</h1>
+                <p class="dashboard-subtitle">
+                    Revisa, aprueba o rechaza solicitudes de promoción de modelos.
+                </p>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="login-message">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Modelo</th>
+                        <th>Versión</th>
+                        <th>Solicitado por</th>
+                        <th>Tipo</th>
+                        <th>Estado</th>
+                        <th>Creado</th>
+                        <th>Revisado por</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests_data %}
+                    <tr>
+                        <td>{{ req.id }}</td>
+                        <td>{{ req.model_name }}</td>
+                        <td>{{ req.model_version }}</td>
+                        <td>{{ req.requested_by_name }}</td>
+                        <td>{{ req.request_type }}</td>
+                        <td>{{ req.status }}</td>
+                        <td>{{ req.created_at }}</td>
+                        <td>{{ req.reviewed_by_name if req.reviewed_by_name else 'Pending' }}</td>
+                        <td class="actions-cell">
+                            {% if req.status == 'pending' %}
+                            <form method="POST" action="{{ url_for('approve_model_request', request_id=req.id) }}" style="display:inline;">
+                                <button type="submit" class="btn-small">Approve</button>
+                            </form>
+
+                            <form method="POST" action="{{ url_for('reject_model_request', request_id=req.id) }}" style="display:inline;">
+                                <button type="submit" class="btn-danger-small">Reject</button>
+                            </form>
+                            {% else %}
+                            <span style="color:#86efac;">Reviewed</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

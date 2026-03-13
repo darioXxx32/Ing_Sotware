@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}Operator Metrics Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card operator-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Operator</p>
+                <h1>Dashboard de actividad de red</h1>
+                <p class="dashboard-subtitle">
+                    Bienvenido, {{ username }}. Aquí puedes visualizar estadísticas generales del tráfico y eventos registrados.
+                </p>
+            </div>
+            <div class="status-badge">Monitor</div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span>Total eventos</span>
+                <strong>{{ total_events }}</strong>
+            </div>
+            <div class="stat-card">
+                <span>Ataques</span>
+                <strong>{{ total_attacks }}</strong>
+            </div>
+            <div class="stat-card">
+                <span>Sospechosos</span>
+                <strong>{{ total_suspicious }}</strong>
+            </div>
+            <div class="stat-card">
+                <span>Normales</span>
+                <strong>{{ total_normal }}</strong>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>Eventos por protocolo</h3>
+                <canvas id="protocolChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>Eventos por etiqueta</h3>
+                <canvas id="labelChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>Eventos por estado</h3>
+                <canvas id="statusChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>Fluctuación reciente</h3>
+                <canvas id="timeChart"></canvas>
+            </div>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('operator_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const protocolLabels = {{ protocol_data | map(attribute='protocol') | list | tojson }};
+    const protocolValues = {{ protocol_data | map(attribute='total') | list | tojson }};
+
+    const labelLabels = {{ label_data | map(attribute='label') | list | tojson }};
+    const labelValues = {{ label_data | map(attribute='total') | list | tojson }};
+
+    const statusLabels = {{ status_data | map(attribute='status') | list | tojson }};
+    const statusValues = {{ status_data | map(attribute='total') | list | tojson }};
+
+    const timeLabels = {{ time_data | map(attribute='event_time') | list | tojson }};
+    const timeValues = {{ time_data | map(attribute='total') | list | tojson }};
+
+    new Chart(document.getElementById('protocolChart'), {
+        type: 'bar',
+        data: {
+            labels: protocolLabels,
+            datasets: [{
+                label: 'Eventos',
+                data: protocolValues
+            }]
+        }
+    });
+
+    new Chart(document.getElementById('labelChart'), {
+        type: 'pie',
+        data: {
+            labels: labelLabels,
+            datasets: [{
+                data: labelValues
+            }]
+        }
+    });
+
+    new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: {
+            labels: statusLabels,
+            datasets: [{
+                data: statusValues
+            }]
+        }
+    });
+
+    new Chart(document.getElementById('timeChart'), {
+        type: 'line',
+        data: {
+            labels: timeLabels,
+            datasets: [{
+                label: 'Eventos recientes',
+                data: timeValues,
+                tension: 0.3
+            }]
+        }
+    });
+</script>
+{% endblock %}
