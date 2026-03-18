@@ -4,6 +4,10 @@ import random
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import socket
+from collections import deque, Counter
+from threading import Thread, Lock
+from time import time
+from scapy.all import sniff, IP, TCP, UDP, ICMP
 
 app = Flask(__name__)
 app.secret_key = "clave_super_secreta_para_pruebas"
@@ -53,6 +57,7 @@ def is_general_admin():
     return session.get('username') == 'dario' and session.get('role') == 'admin'
 
 
+
 def check_tcp_service(host, port, timeout=1):
     try:
         with socket.create_connection((host, port), timeout=timeout):
@@ -77,6 +82,127 @@ def log_action(action, entity_type=None, entity_id=None, details=None, user_id=N
             conn.commit()
     finally:
         conn.close()
+
+
+
+# =========================
+# LIVE NETWORK MONITOR
+# =========================
+class LiveNetworkMonitor:
+    def __init__(self):
+        self.lock = Lock()
+        self.running = False
+        self.interface = None
+
+        self.packet_timestamps = deque(maxlen=5000)
+        self.byte_timestamps = deque(maxlen=5000)
+
+        self.protocol_counter = Counter()
+        self.src_ip_counter = Counter()
+
+        self.recent_packets = deque(maxlen=100)
+
+    def process_packet(self, pkt):
+        now = time()
+        pkt_len = len(pkt)
+
+        protocol = "OTHER"
+        src_ip = "unknown"
+        dst_ip = "unknown"
+
+        if IP in pkt:
+            src_ip = pkt[IP].src
+            dst_ip = pkt[IP].dst
+
+            if TCP in pkt:
+                protocol = "TCP"
+            elif UDP in pkt:
+                protocol = "UDP"
+            elif ICMP in pkt:
+                protocol = "ICMP"
+            else:
+                protocol = "IP"
+
+        with self.lock:
+            self.packet_timestamps.append(now)
+            self.byte_timestamps.append((now, pkt_len))
+            self.protocol_counter[protocol] += 1
+            self.src_ip_counter[src_ip] += 1
+
+            self.recent_packets.append({
+                "time": now,
+                "src_ip": src_ip,
+                "dst_ip": dst_ip,
+                "protocol": protocol,
+                "size": pkt_len
+            })
+
+    def start(self, iface=None):
+        if self.running:
+            return
+
+        self.running = True
+        self.interface = iface
+
+        def _sniff():
+            try:
+                sniff(
+                    iface=iface,
+                    prn=self.process_packet,
+                    store=False
+                )
+            except Exception as e:
+                print(f"[LIVE MONITOR] Sniff error: {e}")
+
+        thread = Thread(target=_sniff, daemon=True)
+        thread.start()
+
+    def get_snapshot(self):
+        now = time()
+        window_seconds = 20
+
+        with self.lock:
+            # packets/sec and bytes/sec over last 20 seconds
+            pps_points = []
+            bps_points = []
+
+            for i in range(window_seconds, 0, -1):
+                start = now - i
+                end = start + 1
+
+                p_count = sum(1 for ts in self.packet_timestamps if start <= ts < end)
+                b_count = sum(size for ts, size in self.byte_timestamps if start <= ts < end)
+
+                pps_points.append(p_count)
+                bps_points.append(b_count)
+
+            protocol_labels = list(self.protocol_counter.keys())
+            protocol_values = list(self.protocol_counter.values())
+
+            top_src = self.src_ip_counter.most_common(5)
+            top_src_labels = [ip for ip, _ in top_src]
+            top_src_values = [count for _, count in top_src]
+
+            labels_time = [f"-{i}s" for i in range(window_seconds-1, -1, -1)]
+
+            return {
+                "time_labels": labels_time,
+                "packets_per_sec": pps_points,
+                "bytes_per_sec": bps_points,
+                "protocol_labels": protocol_labels,
+                "protocol_values": protocol_values,
+                "top_src_labels": top_src_labels,
+                "top_src_values": top_src_values,
+                "total_packets": sum(pps_points),
+                "total_bytes": sum(bps_points)
+            }
+
+live_monitor = LiveNetworkMonitor()
+# intenta arrancar captura live al iniciar la app
+try:
+    live_monitor.start()
+except Exception as e:
+    print(f"[LIVE MONITOR] Could not start automatically: {e}")
 
 # =========================
 # PUBLIC ROUTES
@@ -291,6 +417,36 @@ def reset_password():
         return redirect(url_for('login'))
     
 
+    finally:
+        conn.close()
+
+def save_traffic_snapshot():
+    snapshot = live_monitor.get_snapshot()
+
+    protocol_map = dict(zip(snapshot["protocol_labels"], snapshot["protocol_values"]))
+    top_src_ip = snapshot["top_src_labels"][0] if snapshot["top_src_labels"] else None
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO traffic_metrics (
+                    window_seconds, packets_total, bytes_total,
+                    tcp_count, udp_count, icmp_count, other_count,
+                    top_src_ip
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                20,
+                snapshot["total_packets"],
+                snapshot["total_bytes"],
+                protocol_map.get("TCP", 0),
+                protocol_map.get("UDP", 0),
+                protocol_map.get("ICMP", 0),
+                protocol_map.get("OTHER", 0) + protocol_map.get("IP", 0),
+                top_src_ip
+            ))
+            conn.commit()
     finally:
         conn.close()
 
@@ -1359,6 +1515,24 @@ def operator_metrics():
     )
 
 
+
+# =========================
+# LIVE TRAFFIC DASHBOARD
+# =========================
+@app.route('/operator-live')
+@login_required
+@role_required('operator', 'admin')
+def operator_live_dashboard():
+    return render_template(
+        'operator_live_dashboard.html',
+        username=session.get('username')
+    )
+
+@app.route('/api/live-traffic')
+@login_required
+@role_required('operator', 'admin')
+def api_live_traffic():
+    return live_monitor.get_snapshot()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

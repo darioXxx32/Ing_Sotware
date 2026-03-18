@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}Live Network Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card operator-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Operator</p>
+                <h1>Tráfico de red en tiempo real</h1>
+                <p class="dashboard-subtitle">
+                    Bienvenido, {{ username }}. Este panel muestra una captura live del tráfico y métricas operativas de la red.
+                </p>
+            </div>
+            <div class="status-badge">Live</div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span>Paquetes últimos 20s</span>
+                <strong id="totalPackets">0</strong>
+            </div>
+            <div class="stat-card">
+                <span>Bytes últimos 20s</span>
+                <strong id="totalBytes">0</strong>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>Paquetes por segundo</h3>
+                <canvas id="ppsChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>Bytes por segundo</h3>
+                <canvas id="bpsChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>Distribución por protocolo</h3>
+                <canvas id="protocolChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>Top IPs origen</h3>
+                <canvas id="srcChart"></canvas>
+            </div>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('operator_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let ppsChart, bpsChart, protocolChart, srcChart;
+
+    function buildCharts(data) {
+        ppsChart = new Chart(document.getElementById('ppsChart'), {
+            type: 'line',
+            data: {
+                labels: data.time_labels,
+                datasets: [{
+                    label: 'Packets/sec',
+                    data: data.packets_per_sec,
+                    tension: 0.35
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: false
+            }
+        });
+
+        bpsChart = new Chart(document.getElementById('bpsChart'), {
+            type: 'line',
+            data: {
+                labels: data.time_labels,
+                datasets: [{
+                    label: 'Bytes/sec',
+                    data: data.bytes_per_sec,
+                    tension: 0.35
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: false
+            }
+        });
+
+        protocolChart = new Chart(document.getElementById('protocolChart'), {
+            type: 'doughnut',
+            data: {
+                labels: data.protocol_labels,
+                datasets: [{
+                    data: data.protocol_values
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: false
+            }
+        });
+
+        srcChart = new Chart(document.getElementById('srcChart'), {
+            type: 'bar',
+            data: {
+                labels: data.top_src_labels,
+                datasets: [{
+                    label: 'Packets',
+                    data: data.top_src_values
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: false
+            }
+        });
+
+        document.getElementById('totalPackets').textContent = data.total_packets;
+        document.getElementById('totalBytes').textContent = data.total_bytes;
+    }
+
+    function updateCharts(data) {
+        ppsChart.data.labels = data.time_labels;
+        ppsChart.data.datasets[0].data = data.packets_per_sec;
+        ppsChart.update();
+
+        bpsChart.data.labels = data.time_labels;
+        bpsChart.data.datasets[0].data = data.bytes_per_sec;
+        bpsChart.update();
+
+        protocolChart.data.labels = data.protocol_labels;
+        protocolChart.data.datasets[0].data = data.protocol_values;
+        protocolChart.update();
+
+        srcChart.data.labels = data.top_src_labels;
+        srcChart.data.datasets[0].data = data.top_src_values;
+        srcChart.update();
+
+        document.getElementById('totalPackets').textContent = data.total_packets;
+        document.getElementById('totalBytes').textContent = data.total_bytes;
+    }
+
+    async function fetchLiveData() {
+        const response = await fetch("{{ url_for('api_live_traffic') }}");
+        const data = await response.json();
+
+        if (!ppsChart) {
+            buildCharts(data);
+        } else {
+            updateCharts(data);
+        }
+    }
+
+    fetchLiveData();
+    setInterval(fetchLiveData, 2000);
+</script>
+{% endblock %}

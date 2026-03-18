@@ -689,3 +689,9 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+
+.chart-card canvas {
+    width: 100% !important;
+    max-height: 320px;
+}
