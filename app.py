@@ -25,6 +25,38 @@ def get_connection():
         cursorclass=pymysql.cursors.DictCursor
     )
 
+def ensure_user_role_requests_table():
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_role_requests (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    assigned_role_id INT NULL,
+                    reviewed_by INT NULL,
+                    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at TIMESTAMP NULL DEFAULT NULL,
+                    UNIQUE KEY uq_user_role_requests_user (user_id)
+                )
+            """)
+            conn.commit()
+    finally:
+        conn.close()
+
+def get_user_role_request(cursor, user_id):
+    cursor.execute("""
+        SELECT urr.id, urr.status, urr.assigned_role_id, urr.requested_at, urr.reviewed_at,
+               urr.reviewed_by, r.name AS assigned_role_name, reviewer.username AS reviewed_by_name
+        FROM user_role_requests urr
+        LEFT JOIN roles r ON urr.assigned_role_id = r.id
+        LEFT JOIN users reviewer ON urr.reviewed_by = reviewer.id
+        WHERE urr.user_id = %s
+        LIMIT 1
+    """, (user_id,))
+    return cursor.fetchone()
+
 # =========================
 # DECORATORS
 # =========================
@@ -46,6 +78,9 @@ def role_required(*allowed_roles):
                 return redirect(url_for('login'))
 
             user_role = session.get('role')
+            if not user_role:
+                return redirect(url_for('pending_role_assignment'))
+
             if user_role not in allowed_roles:
                 flash("You do not have permission to access this section.", "error")
                 return redirect(url_for('home'))
@@ -237,6 +272,7 @@ def login():
     if request.method == 'POST':
         username_or_email = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
+        ensure_user_role_requests_table()
 
         if not username_or_email or not password:
             flash("All fields are required.", "error")
@@ -270,23 +306,37 @@ def login():
 
             session['user_id'] = user['id']
             session['username'] = user['username']
-            session['role'] = user['role_name']
+            session['role_assignment_pending'] = False
 
             with conn.cursor() as cursor:
                 cursor.execute(
                     "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s",
                     (user['id'],)
                 )
+                role_request = get_user_role_request(cursor, user['id'])
                 conn.commit()
 
             # AQUÍ VA log_action
+            role_pending = role_request and role_request['status'] == 'pending'
+            session['role_assignment_pending'] = bool(role_pending)
+
             log_action(
                 action="login",
                 entity_type="user",
                 entity_id=user['id'],
-                details=f"User {user['username']} logged in successfully.",
+                details=(
+                    f"User {user['username']} logged in and is waiting for role assignment."
+                    if role_pending else
+                    f"User {user['username']} logged in successfully."
+                ),
                 user_id=user['id']
             )
+
+            if role_pending:
+                session['role'] = None
+                return redirect(url_for('pending_role_assignment'))
+
+            session['role'] = user['role_name']
 
             if user['role_name'] == 'admin':
                 return redirect(url_for('admin_dashboard'))
@@ -309,10 +359,108 @@ def login():
 
     return render_template('login.html')
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    ensure_user_role_requests_table()
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, question_text FROM security_questions ORDER BY id ASC")
+            security_questions = cursor.fetchall()
+
+            cursor.execute("""
+                SELECT id, name
+                FROM roles
+                WHERE name = %s
+                LIMIT 1
+            """, ('operator',))
+            default_role = cursor.fetchone()
+
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            email = request.form.get('email', '').strip()
+            password = request.form.get('password', '').strip()
+            confirm_password = request.form.get('confirm_password', '').strip()
+
+            answers = {}
+            for question in security_questions:
+                answers[question['id']] = request.form.get(f"question_{question['id']}", '').strip()
+
+            if not default_role:
+                flash("Registration is unavailable because the operator role is not configured.", "error")
+                return render_template('register.html', security_questions=security_questions)
+
+            if not username or not email or not password or not confirm_password:
+                flash("All required fields must be completed.", "error")
+                return render_template('register.html', security_questions=security_questions)
+
+            if password != confirm_password:
+                flash("Passwords do not match.", "error")
+                return render_template('register.html', security_questions=security_questions)
+
+            if len(password) < 8:
+                flash("Password must be at least 8 characters long.", "error")
+                return render_template('register.html', security_questions=security_questions)
+
+            if sum(1 for value in answers.values() if value) < 3:
+                flash("At least 3 security answers must be provided.", "error")
+                return render_template('register.html', security_questions=security_questions)
+
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT id
+                    FROM users
+                    WHERE username = %s OR email = %s
+                    LIMIT 1
+                """, (username, email))
+                existing_user = cursor.fetchone()
+
+                if existing_user:
+                    flash("Username or email is already registered.", "error")
+                    return render_template('register.html', security_questions=security_questions)
+
+                cursor.execute("""
+                    INSERT INTO users (username, email, password_hash, role_id)
+                    VALUES (%s, %s, %s, %s)
+                """, (username, email, generate_password_hash(password), default_role['id']))
+                user_id = cursor.lastrowid
+
+                cursor.execute("""
+                    INSERT INTO user_role_requests (user_id, status, assigned_role_id, reviewed_by, reviewed_at)
+                    VALUES (%s, 'pending', NULL, NULL, NULL)
+                """, (user_id,))
+
+                for question_id, answer in answers.items():
+                    if answer:
+                        cursor.execute("""
+                            INSERT INTO user_security_answers (user_id, question_id, answer_hash)
+                            VALUES (%s, %s, %s)
+                        """, (user_id, question_id, generate_password_hash(answer)))
+
+                conn.commit()
+
+            log_action(
+                action="self_register",
+                entity_type="user",
+                entity_id=user_id,
+                details=f"Public registration completed for {username}. Pending admin role assignment created.",
+                user_id=user_id
+            )
+            flash("Account created successfully. Sign in to wait for role assignment from the administrator.", "success")
+            return redirect(url_for('login'))
+
+    finally:
+        conn.close()
+
+    return render_template('register.html', security_questions=security_questions)
+
 @app.route('/back-dashboard')
 @login_required
 def back_dashboard():
     role = session.get('role')
+
+    if session.get('role_assignment_pending') or not role:
+        return redirect(url_for('pending_role_assignment'))
 
     if role == 'admin':
         return redirect(url_for('admin_dashboard'))
@@ -328,6 +476,55 @@ def back_dashboard():
         return redirect(url_for('operator_dashboard'))
     else:
         return redirect(url_for('home'))
+
+@app.route('/pending-role')
+@login_required
+def pending_role_assignment():
+    ensure_user_role_requests_table()
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT u.id, u.username, u.is_active, r.name AS role_name
+                FROM users u
+                LEFT JOIN roles r ON u.role_id = r.id
+                WHERE u.id = %s
+                LIMIT 1
+            """, (session.get('user_id'),))
+            user = cursor.fetchone()
+
+            if not user:
+                session.clear()
+                flash("User account was not found.", "error")
+                return redirect(url_for('login'))
+
+            role_request = get_user_role_request(cursor, user['id'])
+
+            if not user['is_active']:
+                session.clear()
+                flash("This account is inactive.", "error")
+                return redirect(url_for('login'))
+
+            if not role_request or role_request['status'] != 'pending':
+                session['role_assignment_pending'] = False
+                session['role'] = user['role_name']
+
+                if user['role_name']:
+                    flash("Role assigned successfully. Access has been enabled.", "success")
+                    return redirect(url_for('back_dashboard'))
+
+                flash("Your account still does not have a valid role assigned.", "error")
+                return redirect(url_for('logout'))
+
+            session['role_assignment_pending'] = True
+            session['role'] = None
+            return render_template(
+                'pending_role_assignment.html',
+                username=user['username'],
+                requested_at=role_request['requested_at']
+            )
+    finally:
+        conn.close()
 
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
@@ -624,22 +821,35 @@ def collectors_status():
 @login_required
 @role_required('admin')
 def manage_users():
+    ensure_user_role_requests_table()
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             sql = """
                 SELECT u.id, u.username, u.email, u.role_id, u.is_active,
-                       u.created_at, u.last_login, r.name AS role_name
+                       u.created_at, u.last_login, r.name AS role_name,
+                       urr.status AS request_status, urr.requested_at,
+                       reviewer.username AS reviewed_by_name
                 FROM users u
-                JOIN roles r ON u.role_id = r.id
-                ORDER BY u.id ASC
+                LEFT JOIN roles r ON u.role_id = r.id
+                LEFT JOIN user_role_requests urr ON urr.user_id = u.id
+                LEFT JOIN users reviewer ON urr.reviewed_by = reviewer.id
+                ORDER BY
+                    CASE WHEN urr.status = 'pending' THEN 0 ELSE 1 END,
+                    u.id ASC
             """
             cursor.execute(sql)
             users = cursor.fetchall()
     finally:
         conn.close()
 
-    return render_template('manage_users.html', users=users, username=session.get('username'))
+    pending_requests_count = sum(1 for user in users if user.get('request_status') == 'pending')
+    return render_template(
+        'manage_users.html',
+        users=users,
+        username=session.get('username'),
+        pending_requests_count=pending_requests_count
+    )
 
 @app.route('/admin/users/create', methods=['GET', 'POST'])
 @login_required
@@ -707,6 +917,7 @@ def create_user():
 @login_required
 @role_required('admin')
 def edit_user(user_id):
+    ensure_user_role_requests_table()
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -714,9 +925,11 @@ def edit_user(user_id):
             roles = cursor.fetchall()
 
             cursor.execute("""
-                SELECT id, username, email, role_id, is_active
-                FROM users
-                WHERE id = %s
+                SELECT u.id, u.username, u.email, u.role_id, u.is_active,
+                       urr.status AS request_status, urr.requested_at
+                FROM users u
+                LEFT JOIN user_role_requests urr ON urr.user_id = u.id
+                WHERE u.id = %s
             """, (user_id,))
             user = cursor.fetchone()
 
@@ -730,23 +943,54 @@ def edit_user(user_id):
             role_id = request.form.get('role_id')
             is_active = 1 if request.form.get('is_active') == 'on' else 0
 
+            if not username or not email or not role_id:
+                flash("All fields are required.", "error")
+                return render_template('edit_user.html', user=user, roles=roles)
+
             with conn.cursor() as cursor:
                 cursor.execute("""
                     UPDATE users
                     SET username = %s, email = %s, role_id = %s, is_active = %s
                     WHERE id = %s
                 """, (username, email, role_id, is_active, user_id))
+
+                cursor.execute("""
+                    SELECT id
+                    FROM user_role_requests
+                    WHERE user_id = %s
+                    LIMIT 1
+                """, (user_id,))
+                existing_request = cursor.fetchone()
+
+                if existing_request:
+                    cursor.execute("""
+                        UPDATE user_role_requests
+                        SET status = 'approved',
+                            assigned_role_id = %s,
+                            reviewed_by = %s,
+                            reviewed_at = CURRENT_TIMESTAMP
+                        WHERE user_id = %s
+                    """, (role_id, session.get('user_id'), user_id))
+
                 conn.commit()
                 log_action(
                     action="edit_user",
                     entity_type="user",
                     entity_id=user_id,
-                    details=f"User updated: username={username}, email={email}, role_id={role_id}, is_active={is_active}."
+                    details=(
+                        f"User updated and role request approved: username={username}, email={email}, role_id={role_id}, is_active={is_active}."
+                        if user.get('request_status') == 'pending' else
+                        f"User updated: username={username}, email={email}, role_id={role_id}, is_active={is_active}."
+                    )
                 )
                 
 
                 
-            flash("User updated successfully.", "success")
+            flash(
+                "User updated and role assigned successfully." if user.get('request_status') == 'pending'
+                else "User updated successfully.",
+                "success"
+            )
             return redirect(url_for('manage_users'))
 
     finally:

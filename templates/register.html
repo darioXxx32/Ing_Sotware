@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Registro{% endblock %}
+
+{% block content %}
+<div class="login-page">
+    <div class="login-card register-card">
+        <div class="login-left">
+            <h2>Crea tu cuenta</h2>
+            <p>Registrate para acceder a la plataforma y comenzar con un perfil base de operacion.</p>
+            <ul>
+                <li>Acceso inicial como operador</li>
+                <li>Recuperacion de contrasena con preguntas de seguridad</li>
+                <li>Alta directa desde la pantalla publica</li>
+                <li>Experiencia alineada con el login principal</li>
+            </ul>
+        </div>
+
+        <div class="login-right">
+            <h2>Registrarse</h2>
+            <p class="login-helper">Completa tus datos principales y responde al menos 3 preguntas de seguridad.</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <p class="login-message {{ category }}">{{ message }}</p>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('register') }}">
+                <div class="input-group">
+                    <label for="username">Usuario</label>
+                    <input type="text" id="username" name="username" placeholder="Elige un nombre de usuario" required>
+                </div>
+
+                <div class="input-group">
+                    <label for="email">Correo electronico</label>
+                    <input type="email" id="email" name="email" placeholder="Ingresa tu correo" required>
+                </div>
+
+                <div class="input-group">
+                    <label for="password">Contrasena</label>
+                    <input type="password" id="password" name="password" placeholder="Minimo 8 caracteres" required>
+                </div>
+
+                <div class="input-group">
+                    <label for="confirm_password">Confirmar contrasena</label>
+                    <input type="password" id="confirm_password" name="confirm_password" placeholder="Repite tu contrasena" required>
+                </div>
+
+                <div class="security-questions">
+                    <h3>Preguntas de seguridad</h3>
+                    {% for question in security_questions %}
+                    <div class="input-group">
+                        <label for="question_{{ question.id }}">{{ question.question_text }}</label>
+                        <input type="text" id="question_{{ question.id }}" name="question_{{ question.id }}" placeholder="Escribe tu respuesta">
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="button-row">
+                    <button type="submit" class="btn-primary">Crear cuenta</button>
+                    <a href="{{ url_for('login') }}" class="btn-secondary">Volver al login</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

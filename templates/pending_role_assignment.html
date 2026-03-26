@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Esperando asignacion de rol{% endblock %}
+
+{% block content %}
+<div class="login-page">
+    <div class="login-card">
+        <div class="login-left">
+            <h2>Solicitud enviada</h2>
+            <p>Tu registro ya fue recibido. Ahora un administrador debe revisar tu cuenta y asignarte un rol antes de habilitar permisos.</p>
+            <ul>
+                <li>Tu cuenta ya existe y puedes iniciar sesion</li>
+                <li>El admin debe aprobar y definir tu rol</li>
+                <li>La pantalla se actualiza sola para detectar cambios</li>
+                <li>Cuando te asignen un rol, entraras automaticamente</li>
+            </ul>
+        </div>
+
+        <div class="login-right">
+            <div class="waiting-panel">
+                <span class="waiting-badge">Esperando asignacion de rol</span>
+                <h2>Hola, {{ username }}</h2>
+                <p class="login-helper">Tu solicitud fue registrada el {{ requested_at }}. Mientras tanto no tendras acceso a modulos protegidos.</p>
+
+                <ul class="waiting-list">
+                    <li>Mantente en esta pagina o pulsa actualizar estado</li>
+                    <li>Cuando el admin te apruebe, entraremos a tu panel automaticamente</li>
+                    <li>Si necesitas salir, puedes cerrar sesion sin perder la solicitud</li>
+                </ul>
+
+                <div class="waiting-actions">
+                    <a href="{{ url_for('pending_role_assignment') }}" class="btn-primary">Actualizar estado</a>
+                    <a href="{{ url_for('logout') }}" class="btn-secondary">Cerrar sesion</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+setTimeout(function () {
+    window.location.href = "{{ url_for('pending_role_assignment') }}";
+}, 10000);
+</script>
+{% endblock %}

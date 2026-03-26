@@ -10,6 +10,7 @@
                 <p class="dashboard-role">Administrator</p>
                 <h1>User management</h1>
                 <p class="dashboard-subtitle">Manage accounts, permissions and system access.</p>
+                <p class="dashboard-subtitle">Pending role requests: {{ pending_requests_count }}</p>
             </div>
             <a href="{{ url_for('create_user') }}" class="btn-primary" style="width:auto; padding:12px 20px;">+ New user</a>
         </div>
@@ -17,7 +18,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <p class="login-message">{{ message }}</p>
+                    <p class="login-message {{ category }}">{{ message }}</p>
                 {% endfor %}
             {% endif %}
         {% endwith %}
@@ -30,6 +31,7 @@
                         <th>Username</th>
                         <th>Email</th>
                         <th>Role</th>
+                        <th>Request</th>
                         <th>Active</th>
                         <th>Created</th>
                         <th>Last login</th>
@@ -38,16 +40,25 @@
                 </thead>
                 <tbody>
                     {% for user in users %}
-                    <tr>
+                    <tr class="{% if user.request_status == 'pending' %}pending-row{% endif %}">
                         <td>{{ user.id }}</td>
                         <td>{{ user.username }}</td>
                         <td>{{ user.email }}</td>
-                        <td>{{ user.role_name }}</td>
+                        <td>{{ user.role_name if user.request_status != 'pending' else 'Pending assignment' }}</td>
+                        <td>
+                            {% if user.request_status == 'pending' %}
+                                <span class="request-badge pending">Pending</span>
+                            {% else %}
+                                <span class="request-badge approved">No pending request</span>
+                            {% endif %}
+                        </td>
                         <td>{{ "Yes" if user.is_active else "No" }}</td>
                         <td>{{ user.created_at }}</td>
                         <td>{{ user.last_login if user.last_login else "Never" }}</td>
                         <td class="actions-cell">
-                            <a href="{{ url_for('edit_user', user_id=user.id) }}" class="btn-small">Edit</a>
+                            <a href="{{ url_for('edit_user', user_id=user.id) }}" class="btn-small">
+                                {{ "Assign role" if user.request_status == 'pending' else "Edit" }}
+                            </a>
 
                             <form method="POST" action="{{ url_for('toggle_user_status', user_id=user.id) }}" style="display:inline;">
                                 <button type="submit" class="btn-warning-small">

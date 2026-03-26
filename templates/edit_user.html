@@ -8,10 +8,19 @@
         <div class="dashboard-top">
             <div>
                 <p class="dashboard-role">Administrator</p>
-                <h1>Edit user</h1>
-                <p class="dashboard-subtitle">Update account information and permissions.</p>
+                <h1>{{ "Assign role" if user.request_status == 'pending' else "Edit user" }}</h1>
+                <p class="dashboard-subtitle">
+                    {{ "This account is waiting for admin approval. Select the final role to enable access." if user.request_status == 'pending' else "Update account information and permissions." }}
+                </p>
             </div>
         </div>
+
+        {% if user.request_status == 'pending' %}
+        <div class="request-card">
+            <strong>Pending request</strong>
+            <p>User {{ user.username }} is waiting for role assignment since {{ user.requested_at }}.</p>
+        </div>
+        {% endif %}
 
         <form method="POST" action="{{ url_for('edit_user', user_id=user.id) }}">
             <div class="input-group">
@@ -27,8 +36,11 @@
             <div class="input-group">
                 <label for="role_id">Role</label>
                 <select name="role_id" id="role_id" required class="input-select">
+                    {% if user.request_status == 'pending' %}
+                        <option value="" selected disabled>Select the role to approve access</option>
+                    {% endif %}
                     {% for role in roles %}
-                        <option value="{{ role.id }}" {% if role.id == user.role_id %}selected{% endif %}>{{ role.name }}</option>
+                        <option value="{{ role.id }}" {% if user.request_status != 'pending' and role.id == user.role_id %}selected{% endif %}>{{ role.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -41,7 +53,7 @@
             </div>
 
             <div style="display:flex; gap:12px; margin-top:20px;">
-                <button type="submit" class="btn-primary">Update user</button>
+                <button type="submit" class="btn-primary">{{ "Approve and assign role" if user.request_status == 'pending' else "Update user" }}</button>
                 <a href="{{ url_for('manage_users') }}" class="btn-primary" style="background:#475569;">Cancel</a>
             </div>
         </form>

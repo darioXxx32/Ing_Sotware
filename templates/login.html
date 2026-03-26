@@ -22,7 +22,7 @@
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <p class="login-message">{{ message }}</p>
+                        <p class="login-message {{ category }}">{{ message }}</p>
                     {% endfor %}
                 {% endif %}
             {% endwith %}
@@ -47,6 +47,11 @@
 
                 <button type="submit" class="btn-primary">Ingresar</button>
             </form>
+
+            <div class="login-register">
+                <p>No tienes una cuenta todavia?</p>
+                <a href="{{ url_for('register') }}" class="btn-secondary">Registrarse</a>
+            </div>
         </div>
     </div>
 </div>
