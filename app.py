@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.secret_key = "clave_super_secreta_para_pruebas"
 
 # =========================
-# DB
+# DBdskjsfrkjpofkr
 # =========================
 def get_connection():
     return pymysql.connect(
@@ -929,7 +929,7 @@ def edit_user(user_id):
                        urr.status AS request_status, urr.requested_at
                 FROM users u
                 LEFT JOIN user_role_requests urr ON urr.user_id = u.id
-                WHERE u.id = %s
+                WHERE id = %s
             """, (user_id,))
             user = cursor.fetchone()
 
