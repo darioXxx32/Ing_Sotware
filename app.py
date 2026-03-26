@@ -8,7 +8,7 @@ from collections import deque, Counter
 from threading import Thread, Lock
 from time import time
 from scapy.all import sniff, IP, TCP, UDP, ICMP
-
+from time import sleep
 app = Flask(__name__)
 app.secret_key = "clave_super_secreta_para_pruebas"
 
@@ -83,6 +83,27 @@ def log_action(action, entity_type=None, entity_id=None, details=None, user_id=N
     finally:
         conn.close()
 
+def start_metrics_persistor():
+    def _persist_loop():
+        while True:
+            try:
+                save_traffic_snapshot()
+            except Exception as e:
+                print(f"[METRICS] Error saving snapshot: {e}")
+            sleep(10)
+
+    thread = Thread(target=_persist_loop, daemon=True)
+    thread.start()
+
+try:
+    live_monitor.start()
+except Exception as e:
+    print(f"[LIVE MONITOR] Could not start automatically: {e}")
+
+try:
+    start_metrics_persistor()
+except Exception as e:
+    print(f"[METRICS] Could not start persistor: {e}")
 
 
 # =========================
