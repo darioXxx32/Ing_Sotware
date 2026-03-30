@@ -1,19 +1,26 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import pymysql
 import random
+import os
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import socket
 from collections import deque, Counter
 from threading import Thread, Lock
 from time import time
-from scapy.all import sniff, IP, TCP, UDP, ICMP
+from scapy.all import sniff, IP, TCP, UDP, ICMP , conf
+from collections import Counter, deque
+from threading import Thread, Lock
+from time import time , sleep
+conf.use_pcap=True
+
 from time import sleep
 app = Flask(__name__)
 app.secret_key = "clave_super_secreta_para_pruebas"
+_table_columns_cache = {}
 
 # =========================
-# DBdskjsfrkjpofkr
+# DBdskjsfrkjpofkrdario
 # =========================
 def get_connection():
     return pymysql.connect(
@@ -24,6 +31,17 @@ def get_connection():
         database="idsdb",
         cursorclass=pymysql.cursors.DictCursor
     )
+
+def get_table_columns(table_name):
+    if table_name not in _table_columns_cache:
+        conn = get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(f"SHOW COLUMNS FROM {table_name}")
+                _table_columns_cache[table_name] = {row["Field"] for row in cursor.fetchall()}
+        finally:
+            conn.close()
+    return _table_columns_cache[table_name]
 
 def ensure_user_role_requests_table():
     conn = get_connection()
@@ -118,29 +136,10 @@ def log_action(action, entity_type=None, entity_id=None, details=None, user_id=N
     finally:
         conn.close()
 
-def start_metrics_persistor():
-    def _persist_loop():
-        while True:
-            try:
-                save_traffic_snapshot()
-            except Exception as e:
-                print(f"[METRICS] Error saving snapshot: {e}")
-            sleep(10)
 
-    thread = Thread(target=_persist_loop, daemon=True)
-    thread.start()
-
-try:
-    live_monitor.start()
-except Exception as e:
-    print(f"[LIVE MONITOR] Could not start automatically: {e}")
-
-try:
-    start_metrics_persistor()
-except Exception as e:
-    print(f"[METRICS] Could not start persistor: {e}")
-
-
+# =========================
+# LIVE NETWORK MONITOR
+# =========================
 # =========================
 # LIVE NETWORK MONITOR
 # =========================
@@ -150,21 +149,25 @@ class LiveNetworkMonitor:
         self.running = False
         self.interface = None
 
-        self.packet_timestamps = deque(maxlen=5000)
-        self.byte_timestamps = deque(maxlen=5000)
+        self.packet_timestamps = deque(maxlen=10000)
+        self.byte_timestamps = deque(maxlen=10000)
 
         self.protocol_counter = Counter()
         self.src_ip_counter = Counter()
+        self.dst_ip_counter = Counter()
 
-        self.recent_packets = deque(maxlen=100)
+        self.recent_packets = deque(maxlen=300)
 
     def process_packet(self, pkt):
         now = time()
         pkt_len = len(pkt)
 
         protocol = "OTHER"
-        src_ip = "unknown"
-        dst_ip = "unknown"
+        src_ip = None
+        dst_ip = None
+        src_port = None
+        dst_port = None
+        flags = None
 
         if IP in pkt:
             src_ip = pkt[IP].src
@@ -172,8 +175,16 @@ class LiveNetworkMonitor:
 
             if TCP in pkt:
                 protocol = "TCP"
+                src_port = int(pkt[TCP].sport)
+                dst_port = int(pkt[TCP].dport)
+                try:
+                    flags = str(pkt[TCP].flags)
+                except Exception:
+                    flags = None
             elif UDP in pkt:
                 protocol = "UDP"
+                src_port = int(pkt[UDP].sport)
+                dst_port = int(pkt[UDP].dport)
             elif ICMP in pkt:
                 protocol = "ICMP"
             else:
@@ -182,15 +193,22 @@ class LiveNetworkMonitor:
         with self.lock:
             self.packet_timestamps.append(now)
             self.byte_timestamps.append((now, pkt_len))
+
             self.protocol_counter[protocol] += 1
-            self.src_ip_counter[src_ip] += 1
+            if src_ip:
+                self.src_ip_counter[src_ip] += 1
+            if dst_ip:
+                self.dst_ip_counter[dst_ip] += 1
 
             self.recent_packets.append({
                 "time": now,
                 "src_ip": src_ip,
                 "dst_ip": dst_ip,
+                "src_port": src_port,
+                "dst_port": dst_port,
                 "protocol": protocol,
-                "size": pkt_len
+                "size": pkt_len,
+                "flags": flags
             })
 
     def start(self, iface=None):
@@ -218,7 +236,6 @@ class LiveNetworkMonitor:
         window_seconds = 20
 
         with self.lock:
-            # packets/sec and bytes/sec over last 20 seconds
             pps_points = []
             bps_points = []
 
@@ -236,10 +253,15 @@ class LiveNetworkMonitor:
             protocol_values = list(self.protocol_counter.values())
 
             top_src = self.src_ip_counter.most_common(5)
+            top_dst = self.dst_ip_counter.most_common(5)
+
             top_src_labels = [ip for ip, _ in top_src]
             top_src_values = [count for _, count in top_src]
 
-            labels_time = [f"-{i}s" for i in range(window_seconds-1, -1, -1)]
+            top_dst_labels = [ip for ip, _ in top_dst]
+            top_dst_values = [count for _, count in top_dst]
+
+            labels_time = [f"-{i}s" for i in range(window_seconds - 1, -1, -1)]
 
             return {
                 "time_labels": labels_time,
@@ -249,16 +271,184 @@ class LiveNetworkMonitor:
                 "protocol_values": protocol_values,
                 "top_src_labels": top_src_labels,
                 "top_src_values": top_src_values,
+                "top_dst_labels": top_dst_labels,
+                "top_dst_values": top_dst_values,
                 "total_packets": sum(pps_points),
                 "total_bytes": sum(bps_points)
             }
 
+    def get_recent_packets_copy(self, limit=50):
+        with self.lock:
+            return list(self.recent_packets)[-limit:]
+
+
+# =========================
+# TRAFFIC PERSISTENCE
+# =========================
+def save_traffic_snapshot():
+    snapshot = live_monitor.get_snapshot()
+    traffic_metric_columns = get_table_columns("traffic_metrics")
+
+    protocol_map = dict(zip(snapshot["protocol_labels"], snapshot["protocol_values"]))
+    payload = {
+        "window_seconds": 20,
+        "packets_total": snapshot["total_packets"],
+        "bytes_total": snapshot["total_bytes"],
+        "tcp_count": protocol_map.get("TCP", 0),
+        "udp_count": protocol_map.get("UDP", 0),
+        "icmp_count": protocol_map.get("ICMP", 0),
+        "other_count": protocol_map.get("OTHER", 0) + protocol_map.get("IP", 0),
+        "top_src_ip": snapshot["top_src_labels"][0] if snapshot["top_src_labels"] else None,
+        "top_dst_ip": snapshot["top_dst_labels"][0] if snapshot["top_dst_labels"] else None,
+    }
+    insertable_columns = [column for column in payload if column in traffic_metric_columns]
+
+    if not insertable_columns:
+        raise RuntimeError("traffic_metrics does not have compatible columns for snapshot persistence")
+
+    placeholders = ", ".join(["%s"] * len(insertable_columns))
+    columns_sql = ", ".join(insertable_columns)
+    values = [payload[column] for column in insertable_columns]
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"INSERT INTO traffic_metrics ({columns_sql}) VALUES ({placeholders})",
+                values
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+
+
+def classify_packet_for_now(packet_dict):
+    """
+    Clasificación simple temporal.
+    Luego esto será reemplazado por dataset + /predict.
+    """
+    protocol = packet_dict.get("protocol")
+    size = packet_dict.get("size", 0)
+    dst_port = packet_dict.get("dst_port")
+
+    label = "normal"
+    score = 0.05
+
+    # reglas muy básicas de transición
+    if protocol == "TCP" and dst_port in (22, 23, 3389):
+        label = "suspicious"
+        score = 0.60
+    elif size > 1400:
+        label = "suspicious"
+        score = 0.40
+
+    return label, score
+
+
+def save_recent_packets_as_events(max_packets=10):
+    packets = live_monitor.get_recent_packets_copy(limit=max_packets)
+
+    if not packets:
+        return
+
+    event_columns = get_table_columns("events")
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            for pkt in packets:
+                src_ip = pkt.get("src_ip")
+                dst_ip = pkt.get("dst_ip")
+
+                if not src_ip:
+                    continue
+
+                label, score = classify_packet_for_now(pkt)
+
+                raw_log = (
+                    f"src={src_ip}, dst={dst_ip}, "
+                    f"sport={pkt.get('src_port')}, dport={pkt.get('dst_port')}, "
+                    f"protocol={pkt.get('protocol')}, size={pkt.get('size')}, flags={pkt.get('flags')}"
+                )
+                payload = {
+                    "source_ip": src_ip,
+                    "dest_ip": dst_ip,
+                    "source_port": pkt.get("src_port"),
+                    "dest_port": pkt.get("dst_port"),
+                    "protocol": pkt.get("protocol"),
+                    "size": pkt.get("size"),
+                    "flags": pkt.get("flags"),
+                    "label": label,
+                    "score": score,
+                    "model_version": "rules_v0",
+                    "status": "new",
+                    "raw_log": raw_log,
+                }
+                insertable_columns = [column for column in payload if column in event_columns]
+
+                if not insertable_columns:
+                    raise RuntimeError("events does not have compatible columns for packet persistence")
+
+                placeholders = ", ".join(["%s"] * len(insertable_columns))
+                columns_sql = ", ".join(insertable_columns)
+                values = [payload[column] for column in insertable_columns]
+
+                cursor.execute(
+                    f"INSERT INTO events ({columns_sql}) VALUES ({placeholders})",
+                    values
+                )
+
+            conn.commit()
+    finally:
+        conn.close()
+
+
+def start_metrics_persistor():
+    def _persist_loop():
+        while True:
+            try:
+                save_traffic_snapshot()
+            except Exception as e:
+                print(f"[METRICS] Error saving traffic snapshot: {e}")
+            sleep(10)
+
+    thread = Thread(target=_persist_loop, daemon=True)
+    thread.start()
+
+
+def start_events_persistor():
+    def _persist_loop():
+        while True:
+            try:
+                save_recent_packets_as_events(max_packets=8)
+            except Exception as e:
+                print(f"[EVENTS] Error saving recent packets as events: {e}")
+            sleep(15)
+
+    thread = Thread(target=_persist_loop, daemon=True)
+    thread.start()
+
+
 live_monitor = LiveNetworkMonitor()
-# intenta arrancar captura live al iniciar la app
-try:
-    live_monitor.start()
-except Exception as e:
-    print(f"[LIVE MONITOR] Could not start automatically: {e}")
+
+def start_background_services():
+    try:
+        live_monitor.start()
+    except Exception as e:
+        print(f"[LIVE MONITOR] Could not start automatically: {e}")
+
+    try:
+        start_metrics_persistor()
+    except Exception as e:
+        print(f"[METRICS] Could not start persistor: {e}")
+
+    try:
+        start_events_persistor()
+    except Exception as e:
+        print(f"[EVENTS] Could not start events persistor: {e}")
+
+
 
 # =========================
 # PUBLIC ROUTES
@@ -635,36 +825,6 @@ def reset_password():
         return redirect(url_for('login'))
     
 
-    finally:
-        conn.close()
-
-def save_traffic_snapshot():
-    snapshot = live_monitor.get_snapshot()
-
-    protocol_map = dict(zip(snapshot["protocol_labels"], snapshot["protocol_values"]))
-    top_src_ip = snapshot["top_src_labels"][0] if snapshot["top_src_labels"] else None
-
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO traffic_metrics (
-                    window_seconds, packets_total, bytes_total,
-                    tcp_count, udp_count, icmp_count, other_count,
-                    top_src_ip
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                20,
-                snapshot["total_packets"],
-                snapshot["total_bytes"],
-                protocol_map.get("TCP", 0),
-                protocol_map.get("UDP", 0),
-                protocol_map.get("ICMP", 0),
-                protocol_map.get("OTHER", 0) + protocol_map.get("IP", 0),
-                top_src_ip
-            ))
-            conn.commit()
     finally:
         conn.close()
 
@@ -1799,5 +1959,39 @@ def operator_live_dashboard():
 def api_live_traffic():
     return live_monitor.get_snapshot()
 
+
+@app.route('/operator-history')
+@login_required
+@role_required('operator', 'admin')
+def operator_history():
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT captured_at, packets_total, bytes_total,
+                       tcp_count, udp_count, icmp_count, other_count,
+                       top_src_ip, top_dst_ip
+                FROM traffic_metrics
+                ORDER BY captured_at DESC
+                LIMIT 30
+            """)
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    rows.reverse()
+
+    return render_template(
+        'operator_history.html',
+        rows=rows,
+        username=session.get('username')
+    )
+
+
+
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    debug_mode = True
+    if not debug_mode or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        start_background_services()
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)

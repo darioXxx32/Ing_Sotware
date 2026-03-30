@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block title %}Traffic History{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card operator-panel">
+        <div class="dashboard-top">
+            <div>
+                <p class="dashboard-role">Operator</p>
+                <h1>Historical traffic metrics</h1>
+                <p class="dashboard-subtitle">
+                    Persisted traffic metrics collected from the live monitoring process.
+                </p>
+            </div>
+            <div class="status-badge">History</div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>Packets total by window</h3>
+                <canvas id="packetsHistoryChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>Bytes total by window</h3>
+                <canvas id="bytesHistoryChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>TCP / UDP / ICMP</h3>
+                <canvas id="protocolHistoryChart"></canvas>
+            </div>
+        </div>
+
+        <div class="users-table-container" style="margin-top: 24px;">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>Captured At</th>
+                        <th>Packets</th>
+                        <th>Bytes</th>
+                        <th>TCP</th>
+                        <th>UDP</th>
+                        <th>ICMP</th>
+                        <th>Other</th>
+                        <th>Top Src IP</th>
+                        <th>Top Dst IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td>{{ r.captured_at }}</td>
+                        <td>{{ r.packets_total }}</td>
+                        <td>{{ r.bytes_total }}</td>
+                        <td>{{ r.tcp_count }}</td>
+                        <td>{{ r.udp_count }}</td>
+                        <td>{{ r.icmp_count }}</td>
+                        <td>{{ r.other_count }}</td>
+                        <td>{{ r.top_src_ip }}</td>
+                        <td>{{ r.top_dst_ip }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('operator_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const historyRows = JSON.parse('{{ rows | tojson | safe }}');
+    const labels = historyRows.map(r => r.captured_at);
+    const packets = historyRows.map(r => r.packets_total);
+    const bytes = historyRows.map(r => r.bytes_total);
+    const tcp = historyRows.map(r => r.tcp_count);
+    const udp = historyRows.map(r => r.udp_count);
+    const icmp = historyRows.map(r => r.icmp_count);
+
+    new Chart(document.getElementById('packetsHistoryChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Packets',
+                data: packets,
+                tension: 0.3
+            }]
+        }
+    });
+
+    new Chart(document.getElementById('bytesHistoryChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Bytes',
+                data: bytes,
+                tension: 0.3
+            }]
+        }
+    });
+
+    new Chart(document.getElementById('protocolHistoryChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'TCP', data: tcp },
+                { label: 'UDP', data: udp },
+                { label: 'ICMP', data: icmp }
+            ]
+        }
+    });
+</script>
+{% endblock %}
