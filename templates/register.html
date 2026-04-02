@@ -3,67 +3,126 @@
 {% block title %}Registro{% endblock %}
 
 {% block content %}
-<div class="login-page">
+<div class="login-page register-page">
     <div class="login-card register-card">
-        <div class="login-left">
-            <h2>Crea tu cuenta</h2>
-            <p>Registrate para acceder a la plataforma y comenzar con un perfil base de operacion.</p>
-            <ul>
-                <li>Acceso inicial como operador</li>
-                <li>Recuperacion de contrasena con preguntas de seguridad</li>
-                <li>Alta directa desde la pantalla publica</li>
-                <li>Experiencia alineada con el login principal</li>
-            </ul>
+        <div class="login-right">
+            <div class="login-form-shell register-form-shell">
+                <div class="login-form-top">
+                    <span class="login-kicker dark">Registro institucional</span>
+                    <h2>Crear solicitud de acceso</h2>
+                    <p class="login-helper">
+                        Complete sus datos principales y configure al menos tres respuestas de seguridad
+                        para habilitar recuperacion de acceso y revision administrativa.
+                    </p>
+                </div>
+
+                <div class="login-access-banner">
+                    <div>
+                        <span class="login-access-label">Solicitud formal</span>
+                        <strong>Registro alineado con el acceso principal del sistema</strong>
+                    </div>
+                    <span class="login-access-chip">Revision</span>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <p class="login-message {{ category }}">{{ message }}</p>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('register') }}" class="login-form-panel register-form-panel">
+                    <div class="register-fields-grid">
+                        <div class="input-group">
+                            <label for="username">Usuario</label>
+                            <input type="text" id="username" name="username" placeholder="Elige un nombre de usuario" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="email">Correo electronico</label>
+                            <input type="email" id="email" name="email" placeholder="Ingresa tu correo" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="password">Contrasena</label>
+                            <input type="password" id="password" name="password" placeholder="Minimo 8 caracteres" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="confirm_password">Confirmar contrasena</label>
+                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Repite tu contrasena" required>
+                        </div>
+                    </div>
+
+                    <div class="security-questions">
+                        <div class="form-section-head">
+                            <span class="login-section-label">Validacion</span>
+                            <h3>Preguntas de seguridad</h3>
+                            <p>Responda al menos tres. Sus respuestas se utilizaran para recuperar el acceso en caso necesario.</p>
+                        </div>
+                        <div class="security-grid">
+                            {% for question in security_questions %}
+                            <div class="input-group">
+                                <label for="question_{{ question.id }}">{{ question.question_text }}</label>
+                                <input type="text" id="question_{{ question.id }}" name="question_{{ question.id }}" placeholder="Escribe tu respuesta">
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="button-row">
+                        <button type="submit" class="btn-primary">Crear cuenta</button>
+                        <a href="{{ url_for('login') }}" class="btn-secondary">Volver al login</a>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        <div class="login-right">
-            <h2>Registrarse</h2>
-            <p class="login-helper">Completa tus datos principales y responde al menos 3 preguntas de seguridad.</p>
+        <div class="login-left register-aside">
+            <div class="login-brand">
+                <span class="login-brand-mark">IDS</span>
+                <div>
+                    <span class="login-brand-text">Solicitud de registro</span>
+                    <strong class="login-brand-caption">Alta con revision administrativa</strong>
+                </div>
+            </div>
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <p class="login-message {{ category }}">{{ message }}</p>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <form method="POST" action="{{ url_for('register') }}">
-                <div class="input-group">
-                    <label for="username">Usuario</label>
-                    <input type="text" id="username" name="username" placeholder="Elige un nombre de usuario" required>
+            <div class="login-left-main">
+                <div class="login-hero-copy">
+                    <span class="login-kicker">Acceso ordenado</span>
+                    <h2>Un registro claro, profesional y coherente con el login principal.</h2>
+                    <p>
+                        La solicitud queda lista para revision interna y mantiene una experiencia
+                        visual sobria, formal y facil de usar desde escritorio o movil.
+                    </p>
                 </div>
 
-                <div class="input-group">
-                    <label for="email">Correo electronico</label>
-                    <input type="email" id="email" name="email" placeholder="Ingresa tu correo" required>
-                </div>
-
-                <div class="input-group">
-                    <label for="password">Contrasena</label>
-                    <input type="password" id="password" name="password" placeholder="Minimo 8 caracteres" required>
-                </div>
-
-                <div class="input-group">
-                    <label for="confirm_password">Confirmar contrasena</label>
-                    <input type="password" id="confirm_password" name="confirm_password" placeholder="Repite tu contrasena" required>
-                </div>
-
-                <div class="security-questions">
-                    <h3>Preguntas de seguridad</h3>
-                    {% for question in security_questions %}
-                    <div class="input-group">
-                        <label for="question_{{ question.id }}">{{ question.question_text }}</label>
-                        <input type="text" id="question_{{ question.id }}" name="question_{{ question.id }}" placeholder="Escribe tu respuesta">
+                <div class="register-visual-panel">
+                    <div class="register-stage">
+                        <span class="register-orbit orbit-one"></span>
+                        <span class="register-orbit orbit-two"></span>
+                        <span class="register-line line-one"></span>
+                        <span class="register-line line-two"></span>
+                        <div class="register-core">
+                            <span class="register-core-mark">ID</span>
+                        </div>
                     </div>
-                    {% endfor %}
-                </div>
 
-                <div class="button-row">
-                    <button type="submit" class="btn-primary">Crear cuenta</button>
-                    <a href="{{ url_for('login') }}" class="btn-secondary">Volver al login</a>
+                    <div class="register-info-grid">
+                        <article class="register-note-card">
+                            <span class="login-section-label">Control</span>
+                            <strong>Validacion por etapas</strong>
+                            <p>Registro, preguntas de seguridad y asignacion posterior de rol.</p>
+                        </article>
+                        <article class="register-note-card">
+                            <span class="login-section-label">Continuidad</span>
+                            <strong>Diseno limpio</strong>
+                            <p>Menos ruido visual y una lectura mas seria para contextos institucionales.</p>
+                        </article>
+                    </div>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>

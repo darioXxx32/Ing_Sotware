@@ -4,13 +4,71 @@
 
 {% block content %}
 <div class="home-container">
-    <div class="home-card">
-        <h1>Plataforma Inteligente IDS</h1>
-        <p>Sistema de detección de intrusiones y gestión de servicios en la nube.</p>
-        <div class="home-actions">
-            <a href="{{ url_for('login') }}" class="btn-primary">Ir al Login</a>
-            <a href="{{ url_for('register') }}" class="btn-secondary">Registrarse</a>
-        </div>
+    <div class="home-shell">
+        <section class="home-hero">
+            <div class="home-brand">
+                <span class="home-brand-mark">IDS</span>
+                <div>
+                    <span class="home-brand-label">Plataforma institucional</span>
+                    <strong>Centro inteligente de monitoreo y respuesta</strong>
+                </div>
+            </div>
+
+            <div class="home-copy">
+                <span class="home-kicker">Seguridad operativa unificada</span>
+                <h1>Supervision, trazabilidad y acceso controlado desde una sola plataforma.</h1>
+                <p>
+                    Consolide eventos, gestione servicios criticos y coordine la operacion
+                    institucional con una experiencia clara, profesional y preparada para
+                    equipos de seguridad, red y auditoria.
+                </p>
+            </div>
+
+            <div class="home-actions">
+                <a href="{{ url_for('login') }}" class="btn-primary">Acceder al sistema</a>
+                <a href="{{ url_for('register') }}" class="btn-secondary">Solicitar registro</a>
+            </div>
+
+            <div class="home-trust-row">
+                <span>Monitoreo centralizado</span>
+                <span>Control por roles</span>
+                <span>Trazabilidad institucional</span>
+            </div>
+        </section>
+
+        <aside class="home-side-panel">
+            <div class="home-status-card">
+                <span class="home-panel-label">Estado de la plataforma</span>
+                <strong>Operacion preparada para supervisar servicios, eventos y accesos.</strong>
+                <p>
+                    El entorno centraliza la entrada al ecosistema IDS con una presentacion
+                    sobria, estable y alineada a un uso profesional desde el primer vistazo.
+                </p>
+            </div>
+
+            <div class="home-metrics-grid">
+                <article class="home-metric-card">
+                    <span>01</span>
+                    <strong>Acceso seguro</strong>
+                    <p>Entrada institucional para usuarios autorizados y roles asignados.</p>
+                </article>
+                <article class="home-metric-card">
+                    <span>02</span>
+                    <strong>Vista ejecutiva</strong>
+                    <p>Jerarquia visual limpia para orientar al usuario desde el inicio.</p>
+                </article>
+                <article class="home-metric-card">
+                    <span>03</span>
+                    <strong>Respuesta coordinada</strong>
+                    <p>Base visual consistente con la operacion del login y del dashboard.</p>
+                </article>
+            </div>
+
+            <div class="home-footnote">
+                <span class="home-footnote-dot"></span>
+                <p>Acceso reservado para personal autorizado del sistema IDS.</p>
+            </div>
+        </aside>
     </div>
 </div>
 {% endblock %}

@@ -1,35 +1,58 @@
 {% extends 'base.html' %}
 
-{% block title %}Events{% endblock %}
+{% block title %}Eventos de Red{% endblock %}
 
 {% block content %}
 <div class="dashboard-page">
     <div class="dashboard-card">
         <div class="dashboard-top">
             <div>
-                <p class="dashboard-role">Events</p>
-                <h1>Event monitoring</h1>
+                <p class="dashboard-role">Eventos</p>
+                <h1>Monitoreo de eventos de red</h1>
                 <p class="dashboard-subtitle">
-                    Review, filter and inspect captured network events.
+                    Filtra, inspecciona y actualiza automáticamente la información capturada desde el backend.
                 </p>
+            </div>
+            <div class="detail-actions">
+                <a href="{{ url_for('back_dashboard') }}" class="btn-secondary inline-button detail-back-link">Volver</a>
+                <div class="status-badge" id="eventsFeedStatus">En línea</div>
             </div>
         </div>
 
-        <form method="GET" action="{{ url_for('list_events') }}" class="filters-grid">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span>Total filtrado</span>
+                <strong id="eventsTotal">{{ event_summary.total_events }}</strong>
+            </div>
+            <div class="stat-card">
+                <span>Ataques</span>
+                <strong id="eventsAttack">{{ event_summary.total_attacks }}</strong>
+            </div>
+            <div class="stat-card">
+                <span>Sospechosos</span>
+                <strong id="eventsSuspicious">{{ event_summary.total_suspicious }}</strong>
+            </div>
+            <div class="stat-card">
+                <span>Nuevos</span>
+                <strong id="eventsNew">{{ event_summary.total_new }}</strong>
+            </div>
+        </div>
+
+        <form method="GET" action="{{ url_for('list_events') }}" class="filters-grid" id="eventsFilterForm">
             <div class="input-group">
-                <label for="source_ip">Source IP</label>
-                <input type="text" id="source_ip" name="source_ip" value="{{ source_ip }}">
+                <label for="source_ip">IP origen</label>
+                <input type="text" id="source_ip" name="source_ip" value="{{ source_ip }}" placeholder="Ej. 192.168.1.25">
             </div>
 
             <div class="input-group">
-                <label for="dest_ip">Destination IP</label>
-                <input type="text" id="dest_ip" name="dest_ip" value="{{ dest_ip }}">
+                <label for="dest_ip">IP destino</label>
+                <input type="text" id="dest_ip" name="dest_ip" value="{{ dest_ip }}" placeholder="Ej. 10.0.0.8">
             </div>
 
             <div class="input-group">
-                <label for="protocol">Protocol</label>
+                <label for="protocol">Protocolo</label>
                 <select id="protocol" name="protocol" class="input-select">
-                    <option value="">All</option>
+                    <option value="">Todos</option>
                     <option value="TCP" {% if protocol == 'TCP' %}selected{% endif %}>TCP</option>
                     <option value="UDP" {% if protocol == 'UDP' %}selected{% endif %}>UDP</option>
                     <option value="ICMP" {% if protocol == 'ICMP' %}selected{% endif %}>ICMP</option>
@@ -37,69 +60,148 @@
             </div>
 
             <div class="input-group">
-                <label for="label">Label</label>
+                <label for="label">Clasificación</label>
                 <select id="label" name="label" class="input-select">
-                    <option value="">All</option>
-                    <option value="normal" {% if label == 'normal' %}selected{% endif %}>normal</option>
-                    <option value="suspicious" {% if label == 'suspicious' %}selected{% endif %}>suspicious</option>
-                    <option value="attack" {% if label == 'attack' %}selected{% endif %}>attack</option>
+                    <option value="">Todas</option>
+                    <option value="normal" {% if label == 'normal' %}selected{% endif %}>Normal</option>
+                    <option value="suspicious" {% if label == 'suspicious' %}selected{% endif %}>Sospechoso</option>
+                    <option value="attack" {% if label == 'attack' %}selected{% endif %}>Ataque</option>
                 </select>
             </div>
 
             <div class="input-group">
-                <label for="status">Status</label>
+                <label for="status">Estado</label>
                 <select id="status" name="status" class="input-select">
-                    <option value="">All</option>
-                    <option value="new" {% if status == 'new' %}selected{% endif %}>new</option>
-                    <option value="reviewed" {% if status == 'reviewed' %}selected{% endif %}>reviewed</option>
-                    <option value="closed" {% if status == 'closed' %}selected{% endif %}>closed</option>
+                    <option value="">Todos</option>
+                    <option value="new" {% if status == 'new' %}selected{% endif %}>Nuevo</option>
+                    <option value="reviewed" {% if status == 'reviewed' %}selected{% endif %}>Revisado</option>
+                    <option value="closed" {% if status == 'closed' %}selected{% endif %}>Cerrado</option>
                 </select>
             </div>
 
             <div class="filters-actions">
-                <button type="submit" class="btn-primary">Apply filters</button>
-                <a href="{{ url_for('list_events') }}" class="btn-primary" style="background:#475569;">Clear</a>
+                <button type="submit" class="btn-primary">Aplicar filtros</button>
+                <a href="{{ url_for('list_events') }}" class="btn-secondary inline-button">Limpiar</a>
             </div>
         </form>
+
+        <div class="section-head section-head-inline">
+            <div>
+                <h3>Resultados</h3>
+                <p>La tabla se sincroniza automáticamente cada 5 segundos con los filtros activos.</p>
+            </div>
+            <span class="refresh-label" id="eventsRefreshLabel">Actualizado con la carga inicial</span>
+        </div>
 
         <div class="users-table-container">
             <table class="users-table">
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Timestamp</th>
-                        <th>Source IP</th>
-                        <th>Destination IP</th>
-                        <th>Protocol</th>
-                        <th>Label</th>
+                        <th>Fecha</th>
+                        <th>IP origen</th>
+                        <th>IP destino</th>
+                        <th>Puerto origen</th>
+                        <th>Puerto destino</th>
+                        <th>Protocolo</th>
+                        <th>Etiqueta</th>
                         <th>Score</th>
-                        <th>Status</th>
-                        <th>Detail</th>
+                        <th>Estado</th>
+                        <th>Detalle</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="eventsTableBody">
                     {% for event in events %}
                     <tr>
                         <td>{{ event.id }}</td>
-                        <td>{{ event.timestamp }}</td>
-                        <td>{{ event.source_ip }}</td>
-                        <td>{{ event.dest_ip }}</td>
-                        <td>{{ event.protocol }}</td>
-                        <td>{{ event.label }}</td>
-                        <td>{{ event.score }}</td>
-                        <td>{{ event.status }}</td>
-                        <td>
-                            <a href="{{ url_for('event_detail', event_id=event.id) }}" class="btn-small">View</a>
-                        </td>
+                        <td>{{ event.timestamp or '-' }}</td>
+                        <td>{{ event.source_ip or '-' }}</td>
+                        <td>{{ event.dest_ip or '-' }}</td>
+                        <td>{{ event.source_port or '-' }}</td>
+                        <td>{{ event.dest_port or '-' }}</td>
+                        <td>{{ event.protocol or '-' }}</td>
+                        <td><span class="event-pill {{ event.label or 'neutral' }}">{{ event.label or 'sin clasificar' }}</span></td>
+                        <td>{{ event.score if event.score is not none else '-' }}</td>
+                        <td><span class="event-pill neutral">{{ event.status or 'sin estado' }}</span></td>
+                        <td><a href="{{ url_for('event_detail', event_id=event.id) }}" class="btn-small">Ver</a></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="11" class="empty-state-cell">No se encontraron eventos con los filtros actuales.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
-        <div style="margin-top:20px;">
-            <a href="{{ url_for('back_dashboard') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back</a>
-        </div>
     </div>
 </div>
+
+<script>
+    const eventsFeedUrl = "{{ url_for('api_events_feed') }}";
+    const eventsTableBody = document.getElementById('eventsTableBody');
+
+    function buildEventsQuery() {
+        const params = new URLSearchParams(window.location.search);
+        params.set('limit', '50');
+        return params.toString();
+    }
+
+    function buildEventTableRow(event) {
+        const labelClass = event.label || 'neutral';
+        const labelText = event.label || 'sin clasificar';
+        const statusText = event.status || 'sin estado';
+        const scoreText = event.score ?? '-';
+        return `
+            <tr>
+                <td>${event.id ?? '-'}</td>
+                <td>${event.timestamp ?? '-'}</td>
+                <td>${event.source_ip ?? '-'}</td>
+                <td>${event.dest_ip ?? '-'}</td>
+                <td>${event.source_port ?? '-'}</td>
+                <td>${event.dest_port ?? '-'}</td>
+                <td>${event.protocol ?? '-'}</td>
+                <td><span class="event-pill ${labelClass}">${labelText}</span></td>
+                <td>${scoreText}</td>
+                <td><span class="event-pill neutral">${statusText}</span></td>
+                <td><a href="/events/${event.id}" class="btn-small">Ver</a></td>
+            </tr>
+        `;
+    }
+
+    function updateEventsSummary(summary) {
+        document.getElementById('eventsTotal').textContent = summary.total_events;
+        document.getElementById('eventsAttack').textContent = summary.total_attacks;
+        document.getElementById('eventsSuspicious').textContent = summary.total_suspicious;
+        document.getElementById('eventsNew').textContent = summary.total_new;
+    }
+
+    function updateEventsTable(events) {
+        if (!events.length) {
+            eventsTableBody.innerHTML = '<tr><td colspan="11" class="empty-state-cell">No se encontraron eventos con los filtros actuales.</td></tr>';
+            return;
+        }
+        eventsTableBody.innerHTML = events.map(buildEventTableRow).join('');
+    }
+
+    async function refreshEventsFeed() {
+        try {
+            const response = await fetch(`${eventsFeedUrl}?${buildEventsQuery()}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) {
+                throw new Error('No se pudo actualizar el feed de eventos.');
+            }
+            const data = await response.json();
+            updateEventsSummary(data.summary);
+            updateEventsTable(data.events);
+            document.getElementById('eventsFeedStatus').textContent = 'En línea';
+            document.getElementById('eventsRefreshLabel').textContent = `Última actualización: ${new Date().toLocaleTimeString()}`;
+        } catch (error) {
+            document.getElementById('eventsFeedStatus').textContent = 'Sin conexión';
+            document.getElementById('eventsRefreshLabel').textContent = 'No fue posible sincronizar en este momento.';
+        }
+    }
+
+    setInterval(refreshEventsFeed, 5000);
+</script>
 {% endblock %}

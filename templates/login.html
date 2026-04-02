@@ -4,53 +4,90 @@
 
 {% block content %}
 <div class="login-page">
-    <div class="login-card">
-        <div class="login-left">
-            <h2>Bienvenido</h2>
-            <p>Accede a la plataforma para monitorear eventos, alertas y modelos de detección.</p>
-            <ul>
-                <li>Monitoreo de eventos de red</li>
-                <li>Gestión de usuarios y roles</li>
-                <li>Visualización de alertas</li>
-                <li>Control de servicios</li>
-            </ul>
+    <div class="login-card login-card-formal login-card-horizontal">
+        <div class="login-left login-auth-panel">
+            <div class="login-form-shell login-auth-shell">
+                <div class="login-auth-badge">
+                    <img
+                        src="{{ url_for('project_image', filename='logo.png') }}"
+                        alt="Logo de la plataforma IDS"
+                        class="login-auth-badge-image"
+                    >
+                </div>
+
+                <div class="login-form-top">
+                    <span class="login-kicker dark">Acceso institucional</span>
+                    <h2>Iniciar sesion</h2>
+                    <p class="login-helper">
+                        Acceda a la plataforma IDS con su usuario institucional.
+                    </p>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <p class="login-message {{ category }}">{{ message }}</p>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('login') }}" class="login-form-panel">
+                    <div class="input-group">
+                        <label for="username">Usuario o correo</label>
+                        <input type="text" id="username" name="username" placeholder="Ingrese su usuario o correo" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="password">Contrasena</label>
+                        <input type="password" id="password" name="password" placeholder="Ingrese su contrasena" required>
+                    </div>
+
+                    <div class="login-options">
+                        <label class="login-checkbox">
+                            <input type="checkbox" id="rememberMe" name="rememberMe">
+                            <span>Recordarme</span>
+                        </label>
+                        <a href="{{ url_for('forgot_password') }}">Recuperar contrasena</a>
+                    </div>
+
+                    <button type="submit" class="btn-primary login-submit-button">Acceder al sistema</button>
+                </form>
+
+                <div class="login-register login-register-inline">
+                    <p>Si aun no tiene acceso, registre una nueva solicitud.</p>
+                    <a href="{{ url_for('register') }}" class="btn-secondary">Solicitar registro</a>
+                </div>
+            </div>
         </div>
 
-        <div class="login-right">
-            <h2>Iniciar sesión</h2>
-
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <p class="login-message {{ category }}">{{ message }}</p>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <form method="POST" action="{{ url_for('login') }}">
-                <div class="input-group">
-                    <label for="username">Usuario o correo</label>
-                    <input type="text" id="username" name="username" placeholder="Ingrese su usuario" required>
+        <div class="login-right login-showcase-panel">
+            <div class="login-showcase-shell">
+                <span class="login-kicker login-kicker-showcase">Plataforma IDS</span>
+                <div class="login-showcase-graphic">
+                    <div class="login-showcase-graphic-frame">
+                        <img
+                            src="{{ url_for('project_image', filename='logo.png') }}"
+                            alt="Logo principal de la plataforma IDS"
+                            class="login-showcase-image"
+                        >
+                    </div>
                 </div>
 
-                <div class="input-group">
-                    <label for="password">Contraseña</label>
-                    <input type="password" id="password" name="password" placeholder="Ingrese su contraseña" required>
+                <div class="login-showcase-copy">
+                    <h2>PLATAFORMA IDS</h2>
+                    <p>
+                        Monitoreo de eventos, control por roles y trazabilidad en una sola
+                        plataforma para equipos de seguridad y operaciones.
+                    </p>
                 </div>
 
-                <div class="login-options">
-                    <label>
-                        <input type="checkbox" id="rememberMe" name="rememberMe"> Recordarme
-                    </label>
-                    <a href="{{ url_for('forgot_password') }}">¿Olvidaste tu contraseña?</a>
+                <div class="login-showcase-meta">
+                    <div class="login-showcase-time">
+                        <strong id="loginClockTime">--:--:--</strong>
+                        <p id="loginClockDate">Cargando fecha...</p>
+                    </div>
+                    <span class="login-clock-zone">GMT-5 | Guayaquil</span>
                 </div>
-
-                <button type="submit" class="btn-primary">Ingresar</button>
-            </form>
-
-            <div class="login-register">
-                <p>No tienes una cuenta todavia?</p>
-                <a href="{{ url_for('register') }}" class="btn-secondary">Registrarse</a>
             </div>
         </div>
     </div>

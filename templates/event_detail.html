@@ -1,70 +1,77 @@
 {% extends 'base.html' %}
 
-{% block title %}Event Detail{% endblock %}
+{% block title %}Detalle del Evento{% endblock %}
 
 {% block content %}
 <div class="dashboard-page">
-    <div class="dashboard-card" style="max-width:900px;">
+    <div class="dashboard-card dashboard-card-detail event-detail-shell">
         <div class="dashboard-top">
             <div>
-                <p class="dashboard-role">Event detail</p>
-                <h1>Event #{{ event.id }}</h1>
+                <p class="dashboard-role">Detalle</p>
+                <h1>Evento #{{ event.id }}</h1>
                 <p class="dashboard-subtitle">
-                    Detailed view of the selected network event.
+                    Vista detallada del evento seleccionado para análisis operativo y trazabilidad.
                 </p>
+            </div>
+            <div class="detail-actions">
+                <a href="{{ url_for('list_events') }}" class="btn-secondary inline-button detail-back-link">Volver a eventos</a>
+                <div class="status-badge">{{ event.status or 'Sin estado' }}</div>
+            </div>
+        </div>
+
+        <div class="event-highlight-row">
+            <div class="detail-item">
+                <span>Clasificación</span>
+                <strong><span class="event-pill {{ event.label or 'neutral' }}">{{ event.label or 'sin clasificar' }}</span></strong>
+            </div>
+            <div class="detail-item">
+                <span>Score</span>
+                <strong>{{ event.score if event.score is not none else 'No disponible' }}</strong>
+            </div>
+            <div class="detail-item">
+                <span>Versión del modelo</span>
+                <strong>{{ event.model_version or 'No disponible' }}</strong>
             </div>
         </div>
 
         <div class="detail-grid">
             <div class="detail-item">
-                <span>Timestamp</span>
-                <strong>{{ event.timestamp }}</strong>
+                <span>Fecha y hora</span>
+                <strong>{{ event.timestamp or 'No disponible' }}</strong>
             </div>
             <div class="detail-item">
-                <span>Source IP</span>
-                <strong>{{ event.source_ip }}</strong>
+                <span>IP origen</span>
+                <strong>{{ event.source_ip or 'No disponible' }}</strong>
             </div>
             <div class="detail-item">
-                <span>Destination IP</span>
-                <strong>{{ event.dest_ip }}</strong>
+                <span>IP destino</span>
+                <strong>{{ event.dest_ip or 'No disponible' }}</strong>
             </div>
             <div class="detail-item">
-                <span>Source Port</span>
-                <strong>{{ event.source_port }}</strong>
+                <span>Puerto origen</span>
+                <strong>{{ event.source_port or 'No disponible' }}</strong>
             </div>
             <div class="detail-item">
-                <span>Destination Port</span>
-                <strong>{{ event.dest_port }}</strong>
+                <span>Puerto destino</span>
+                <strong>{{ event.dest_port or 'No disponible' }}</strong>
             </div>
             <div class="detail-item">
-                <span>Protocol</span>
-                <strong>{{ event.protocol }}</strong>
+                <span>Protocolo</span>
+                <strong>{{ event.protocol or 'No disponible' }}</strong>
             </div>
             <div class="detail-item">
-                <span>Size</span>
-                <strong>{{ event.size }}</strong>
+                <span>Tamaño del paquete</span>
+                <strong>{{ event.size or 'No disponible' }}</strong>
             </div>
             <div class="detail-item">
-                <span>Label</span>
-                <strong>{{ event.label }}</strong>
-            </div>
-            <div class="detail-item">
-                <span>Score</span>
-                <strong>{{ event.score }}</strong>
-            </div>
-            <div class="detail-item">
-                <span>Status</span>
-                <strong>{{ event.status }}</strong>
+                <span>Flags</span>
+                <strong>{{ event.flags or 'No disponible' }}</strong>
             </div>
         </div>
 
         <div class="raw-log-box">
             <h3>Raw log</h3>
-            <pre>{{ event.raw_log }}</pre>
-        </div>
-
-        <div style="margin-top:20px;">
-            <a href="{{ url_for('list_events') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Back to events</a>
+            <pre>{{ event.raw_log or 'No hay raw log almacenado para este evento.' }}</pre>
         </div>
     </div>
 </div>

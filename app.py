@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_from_directory
 import pymysql
 import random
 import os
@@ -18,6 +18,7 @@ from time import sleep
 app = Flask(__name__)
 app.secret_key = "clave_super_secreta_para_pruebas"
 _table_columns_cache = {}
+PROJECT_IMAGES_DIR = os.path.join(app.root_path, "Imagenes")
 
 # =========================
 # DBdskjsfrkjpofkrdario
@@ -42,6 +43,20 @@ def get_table_columns(table_name):
         finally:
             conn.close()
     return _table_columns_cache[table_name]
+
+def get_existing_columns(table_name, preferred_columns):
+    table_columns = get_table_columns(table_name)
+    return [column for column in preferred_columns if column in table_columns]
+
+def format_datetime(value):
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    return value
+
+def serialize_event_record(event):
+    serialized = dict(event)
+    serialized["timestamp"] = format_datetime(serialized.get("timestamp"))
+    return serialized
 
 def ensure_user_role_requests_table():
     conn = get_connection()
@@ -457,6 +472,10 @@ def start_background_services():
 def home():
     return render_template('index.html')
 
+@app.route('/imagenes/<path:filename>')
+def project_image(filename):
+    return send_from_directory(PROJECT_IMAGES_DIR, filename)
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -853,37 +872,63 @@ def logout():
 @login_required
 @role_required('admin')
 def admin_dashboard():
-    return render_template('admin_dashboard.html', username=session.get('username'))
+    return render_template(
+        'role_dashboard.html',
+        dashboard=build_admin_dashboard_context(session.get('username'))
+    )
 
 @app.route('/soc')
 @login_required
 @role_required('soc_analyst')
 def soc_dashboard():
-    return render_template('soc_dashboard.html', username=session.get('username'))
+    return render_template(
+        'role_dashboard.html',
+        dashboard=build_soc_dashboard_context(session.get('username'))
+    )
 
 @app.route('/netadmin')
 @login_required
 @role_required('netadmin')
 def netadmin_dashboard():
-    return render_template('netadmin_dashboard.html', username=session.get('username'))
+    return render_template(
+        'role_dashboard.html',
+        dashboard=build_netadmin_dashboard_context(session.get('username'))
+    )
 
 @app.route('/auditor')
 @login_required
 @role_required('auditor')
 def auditor_dashboard():
-    return render_template('auditor_dashboard.html', username=session.get('username'))
+    return render_template(
+        'role_dashboard.html',
+        dashboard=build_auditor_dashboard_context(session.get('username'))
+    )
 
 @app.route('/ml')
 @login_required
 @role_required('ml_engineer')
 def ml_dashboard():
-    return render_template('ml_dashboard.html', username=session.get('username'))
+    return render_template(
+        'role_dashboard.html',
+        dashboard=build_ml_dashboard_context(session.get('username'))
+    )
 
 @app.route('/operator')
 @login_required
-@role_required('operator')
+@role_required('operator', 'admin')
 def operator_dashboard():
-    return render_template('operator_dashboard.html', username=session.get('username'))
+    dashboard_data = get_operator_dashboard_data()
+    return render_template(
+        'operator_dashboard.html',
+        username=session.get('username'),
+        dashboard_data=dashboard_data
+    )
+
+@app.route('/api/operator-overview')
+@login_required
+@role_required('operator', 'admin')
+def api_operator_overview():
+    return jsonify(get_operator_dashboard_data())
 
 
 @app.route('/services-status')
@@ -927,44 +972,7 @@ def services_status():
 @login_required
 @role_required('netadmin', 'admin')
 def collectors_status():
-    collectors = [
-        {
-            "id": 1,
-            "name": "collector-edge-01",
-            "type": "Edge Sensor",
-            "location": "DMZ Segment",
-            "status": "online",
-            "last_seen": "2026-03-13 18:40:21",
-            "description": "Main collector receiving perimeter traffic logs."
-        },
-        {
-            "id": 2,
-            "name": "collector-core-02",
-            "type": "Core Network Collector",
-            "location": "Internal Core",
-            "status": "warning",
-            "last_seen": "2026-03-13 18:31:02",
-            "description": "Collector active with delayed ingestion."
-        },
-        {
-            "id": 3,
-            "name": "collector-branch-03",
-            "type": "Branch Office Collector",
-            "location": "Remote Site A",
-            "status": "offline",
-            "last_seen": "2026-03-13 16:02:11",
-            "description": "Collector not responding from remote segment."
-        },
-        {
-            "id": 4,
-            "name": "collector-cloud-04",
-            "type": "Cloud Log Collector",
-            "location": "AWS VPC",
-            "status": "online",
-            "last_seen": "2026-03-13 18:41:08",
-            "description": "Receiving VPC flow logs and cloud audit events."
-        }
-    ]
+    collectors = get_collectors_catalog()
 
     return render_template(
         'collectors_status.html',
@@ -1216,6 +1224,876 @@ def toggle_user_status(user_id):
 
     flash("User status updated successfully.", "success")
     return redirect(url_for('manage_users'))
+
+def normalize_event_filters(source):
+    return {
+        "source_ip": source.get('source_ip', '').strip(),
+        "dest_ip": source.get('dest_ip', '').strip(),
+        "protocol": source.get('protocol', '').strip(),
+        "label": source.get('label', '').strip(),
+        "status": source.get('status', '').strip()
+    }
+
+def parse_int_arg(value, default=50, minimum=1, maximum=200):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(parsed, maximum))
+
+def build_events_where_clause(filters, event_columns):
+    clauses = ["1=1"]
+    params = []
+
+    if filters.get("source_ip") and "source_ip" in event_columns:
+        clauses.append("source_ip LIKE %s")
+        params.append(f"%{filters['source_ip']}%")
+
+    if filters.get("dest_ip") and "dest_ip" in event_columns:
+        clauses.append("dest_ip LIKE %s")
+        params.append(f"%{filters['dest_ip']}%")
+
+    if filters.get("protocol") and "protocol" in event_columns:
+        clauses.append("protocol = %s")
+        params.append(filters["protocol"])
+
+    if filters.get("label") and "label" in event_columns:
+        clauses.append("label = %s")
+        params.append(filters["label"])
+
+    if filters.get("status") and "status" in event_columns:
+        clauses.append("status = %s")
+        params.append(filters["status"])
+
+    return " AND ".join(clauses), params
+
+def fetch_events_data(filters=None, limit=50):
+    filters = filters or {}
+    event_columns = get_table_columns("events")
+    where_sql, params = build_events_where_clause(filters, event_columns)
+    preferred_columns = [
+        "id", "timestamp", "source_ip", "dest_ip", "source_port", "dest_port",
+        "protocol", "size", "label", "score", "status", "raw_log", "model_version"
+    ]
+    select_parts = [
+        column if column in event_columns else f"NULL AS {column}"
+        for column in preferred_columns
+    ]
+    order_column = "timestamp" if "timestamp" in event_columns else "id"
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT {", ".join(select_parts)}
+                FROM events
+                WHERE {where_sql}
+                ORDER BY {order_column} DESC
+                LIMIT %s
+                """,
+                params + [limit]
+            )
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return [serialize_event_record(row) for row in rows]
+
+def fetch_event_summary(filters=None):
+    filters = filters or {}
+    event_columns = get_table_columns("events")
+    where_sql, params = build_events_where_clause(filters, event_columns)
+    select_parts = ["COUNT(*) AS total_events"]
+
+    if "label" in event_columns:
+        select_parts.extend([
+            "SUM(CASE WHEN label = 'attack' THEN 1 ELSE 0 END) AS total_attacks",
+            "SUM(CASE WHEN label = 'suspicious' THEN 1 ELSE 0 END) AS total_suspicious",
+            "SUM(CASE WHEN label = 'normal' THEN 1 ELSE 0 END) AS total_normal"
+        ])
+    else:
+        select_parts.extend([
+            "0 AS total_attacks",
+            "0 AS total_suspicious",
+            "0 AS total_normal"
+        ])
+
+    if "status" in event_columns:
+        select_parts.append("SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) AS total_new")
+    else:
+        select_parts.append("0 AS total_new")
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT {", ".join(select_parts)}
+                FROM events
+                WHERE {where_sql}
+                """,
+                params
+            )
+            summary = cursor.fetchone() or {}
+    finally:
+        conn.close()
+
+    return {
+        "total_events": int(summary.get("total_events") or 0),
+        "total_attacks": int(summary.get("total_attacks") or 0),
+        "total_suspicious": int(summary.get("total_suspicious") or 0),
+        "total_normal": int(summary.get("total_normal") or 0),
+        "total_new": int(summary.get("total_new") or 0)
+    }
+
+def get_operator_dashboard_data():
+    event_summary = fetch_event_summary()
+    recent_events = fetch_events_data(limit=6)
+    live_snapshot = live_monitor.get_snapshot()
+
+    return {
+        "event_summary": event_summary,
+        "recent_events": recent_events,
+        "live_metrics": {
+            "total_packets": live_snapshot.get("total_packets", 0),
+            "total_bytes": live_snapshot.get("total_bytes", 0),
+            "top_protocol": (
+                live_snapshot["protocol_labels"][0]
+                if live_snapshot.get("protocol_labels")
+                else "No data"
+            ),
+            "top_source_ip": (
+                live_snapshot["top_src_labels"][0]
+                if live_snapshot.get("top_src_labels")
+                else "No data"
+            )
+        }
+    }
+
+def fetch_scalar(cursor, query, params=None, key="total", default=0):
+    cursor.execute(query, params or ())
+    row = cursor.fetchone() or {}
+    value = row.get(key, default)
+    return value if value is not None else default
+
+def format_percentage_value(value, fallback="0%"):
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+    if numeric <= 1:
+        numeric *= 100
+
+    return f"{numeric:.1f}".rstrip("0").rstrip(".") + "%"
+
+def build_action_item(href, icon, title, description):
+    return {
+        "href": href,
+        "icon": icon,
+        "title": title,
+        "description": description
+    }
+
+def build_focus_item(title, description):
+    return {
+        "title": title,
+        "description": description
+    }
+
+def build_activity_item(eyebrow, title, description, meta=None):
+    return {
+        "eyebrow": eyebrow,
+        "title": title,
+        "description": description,
+        "meta": meta
+    }
+
+def get_collectors_catalog():
+    return [
+        {
+            "id": 1,
+            "name": "collector-edge-01",
+            "type": "Edge Sensor",
+            "location": "DMZ Segment",
+            "status": "online",
+            "last_seen": "2026-03-13 18:40:21",
+            "description": "Main collector receiving perimeter traffic logs."
+        },
+        {
+            "id": 2,
+            "name": "collector-core-02",
+            "type": "Core Network Collector",
+            "location": "Internal Core",
+            "status": "warning",
+            "last_seen": "2026-03-13 18:31:02",
+            "description": "Collector active with delayed ingestion."
+        },
+        {
+            "id": 3,
+            "name": "collector-branch-03",
+            "type": "Branch Office Collector",
+            "location": "Remote Site A",
+            "status": "offline",
+            "last_seen": "2026-03-13 16:02:11",
+            "description": "Collector not responding from remote segment."
+        },
+        {
+            "id": 4,
+            "name": "collector-cloud-04",
+            "type": "Cloud Log Collector",
+            "location": "AWS VPC",
+            "status": "online",
+            "last_seen": "2026-03-13 18:41:08",
+            "description": "Receiving VPC flow logs and cloud audit events."
+        }
+    ]
+
+def build_system_objective(role_note):
+    return {
+        "title": "Objetivo general del sistema",
+        "description": (
+            "La plataforma funciona como un IDS colaborativo: captura trafico, detecta eventos "
+            "sospechosos y coordina la respuesta entre operaciones, red, auditoria y machine learning."
+        ),
+        "stages": [
+            {
+                "eyebrow": "Captura",
+                "title": "Recolectar y centralizar evidencia",
+                "description": "Eventos, alertas, collectors y actividad de usuarios quedan visibles en un solo lugar."
+            },
+            {
+                "eyebrow": "Deteccion",
+                "title": "Priorizar riesgo y contexto",
+                "description": "El sistema clasifica trafico, destaca anomalias y facilita el analisis por rol."
+            },
+            {
+                "eyebrow": "Respuesta",
+                "title": "Actuar y mejorar continuamente",
+                "description": "Cada perfil interviene para contener incidentes, auditar decisiones y elevar el motor de deteccion."
+            }
+        ],
+        "note": role_note
+    }
+
+def build_admin_dashboard_context(username):
+    total_users = 0
+    active_users = 0
+    pending_role_requests = 0
+    pending_model_requests = 0
+    total_events = 0
+    recent_users = []
+
+    try:
+        ensure_user_role_requests_table()
+        conn = get_connection()
+        try:
+            with conn.cursor() as cursor:
+                total_users = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM users"))
+                active_users = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM users WHERE is_active = 1"))
+                pending_role_requests = int(fetch_scalar(
+                    cursor,
+                    "SELECT COUNT(*) AS total FROM user_role_requests WHERE status = 'pending'"
+                ))
+                pending_model_requests = int(fetch_scalar(
+                    cursor,
+                    "SELECT COUNT(*) AS total FROM model_requests WHERE status = 'pending'"
+                ))
+                total_events = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM events"))
+
+                cursor.execute("""
+                    SELECT u.username, u.created_at, u.is_active,
+                           COALESCE(r.name, 'sin rol') AS role_name,
+                           urr.status AS request_status
+                    FROM users u
+                    LEFT JOIN roles r ON u.role_id = r.id
+                    LEFT JOIN user_role_requests urr ON urr.user_id = u.id
+                    ORDER BY u.created_at DESC
+                    LIMIT 4
+                """)
+                recent_users = cursor.fetchall()
+        finally:
+            conn.close()
+    except Exception:
+        recent_users = []
+
+    activity_items = [
+        build_activity_item(
+            "Pendiente" if user.get("request_status") == "pending" else "Cuenta",
+            user.get("username") or "Usuario sin nombre",
+            (
+                f"Rol: {user.get('role_name') or 'sin rol'} | "
+                f"Estado: {'activo' if user.get('is_active') else 'inactivo'}"
+            ),
+            f"Creado: {format_datetime(user.get('created_at')) or 'sin fecha'}"
+        )
+        for user in recent_users
+    ]
+
+    if not activity_items:
+        activity_items = [
+            build_activity_item(
+                "Sin movimiento",
+                "Todavia no hay cuentas recientes",
+                "Cuando se creen o aprueben usuarios, apareceran aqui para seguimiento rapido."
+            )
+        ]
+
+    return {
+        "page_title": "Panel de Administrador",
+        "panel_class": "admin-panel",
+        "role_label": "Administrador",
+        "title": "Centro de gobierno del sistema",
+        "subtitle": (
+            f"Bienvenido, {username}. Desde aqui coordinas accesos, monitoreo y decisiones clave "
+            "para que la plataforma IDS opere de forma consistente."
+        ),
+        "hero_kicker": "Vision ejecutiva",
+        "hero_title": "Control transversal de usuarios, eventos y aprobaciones",
+        "hero_description": (
+            "El rol administrador mantiene alineados los equipos operativos y garantiza que cada perfil "
+            "tenga acceso, contexto y flujo de trabajo apropiado."
+        ),
+        "status_label": f"{pending_role_requests} pendientes" if pending_role_requests else "Activo",
+        "hero_link": {"href": url_for('manage_users'), "label": "Gestionar usuarios"},
+        "stats": [
+            {"label": "Usuarios registrados", "value": total_users, "hint": "Base actual de cuentas"},
+            {"label": "Usuarios activos", "value": active_users, "hint": "Accesos habilitados"},
+            {"label": "Roles por revisar", "value": pending_role_requests, "hint": "Solicitudes pendientes"},
+            {"label": "Eventos monitoreados", "value": total_events, "hint": "Cobertura del sistema"}
+        ],
+        "focus": {
+            "title": "Prioridades del rol",
+            "description": "Lo importante para sostener la operacion general del sistema.",
+            "items": [
+                build_focus_item("Asignacion de accesos", f"{pending_role_requests} cuentas esperan aprobacion o ajuste de rol."),
+                build_focus_item("Gobierno operativo", f"{active_users} de {total_users} usuarios estan habilitados para trabajar."),
+                build_focus_item("Alineacion con ML", f"{pending_model_requests} solicitudes de promocion necesitan decision administrativa."),
+                build_focus_item("Supervision integral", f"El sistema ya concentra {total_events} eventos para trazabilidad y analisis.")
+            ]
+        },
+        "actions": {
+            "title": "Accesos rapidos",
+            "description": "Entradas directas a las vistas que mas usa este perfil.",
+            "items": [
+                build_action_item(url_for('manage_users'), "US", "Usuarios y roles", "Crear cuentas, aprobar roles y activar accesos."),
+                build_action_item(url_for('list_events'), "EV", "Eventos", "Consultar trafico, etiquetas y estado de los registros."),
+                build_action_item(url_for('admin_model_requests'), "MR", "Solicitudes ML", "Revisar promociones de modelos pendientes."),
+                build_action_item(url_for('operator_dashboard'), "OP", "Vista operativa", "Abrir el tablero principal de monitoreo.")
+            ]
+        },
+        "activity": {
+            "title": "Actividad reciente",
+            "description": "Ultimas cuentas visibles para seguimiento administrativo.",
+            "link": {"href": url_for('manage_users'), "label": "Abrir gestion completa"},
+            "items": activity_items
+        },
+        "objective": build_system_objective(
+            "Tu aporte como admin es mantener el sistema gobernable: acceso correcto, decisiones trazables y coordinacion entre todos los roles."
+        )
+    }
+
+def build_soc_dashboard_context(username):
+    total_alerts = 0
+    open_alerts = 0
+    critical_alerts = 0
+    attack_events = 0
+    suspicious_events = 0
+    recent_alerts = []
+
+    try:
+        conn = get_connection()
+        try:
+            with conn.cursor() as cursor:
+                total_alerts = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM alerts"))
+                open_alerts = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM alerts WHERE status = 'open'"))
+                critical_alerts = int(fetch_scalar(
+                    cursor,
+                    "SELECT COUNT(*) AS total FROM alerts WHERE severity = 'critical' AND status = 'open'"
+                ))
+                attack_events = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM events WHERE label = 'attack'"))
+                suspicious_events = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM events WHERE label = 'suspicious'"))
+
+                cursor.execute("""
+                    SELECT a.id, a.title, a.severity, a.status, a.created_at,
+                           e.source_ip, e.dest_ip
+                    FROM alerts a
+                    JOIN events e ON a.event_id = e.id
+                    ORDER BY a.created_at DESC
+                    LIMIT 4
+                """)
+                recent_alerts = cursor.fetchall()
+        finally:
+            conn.close()
+    except Exception:
+        recent_alerts = []
+
+    activity_items = [
+        build_activity_item(
+            f"{alert.get('severity') or 'sin gravedad'}",
+            alert.get("title") or f"Alerta #{alert.get('id')}",
+            (
+                f"Origen {alert.get('source_ip') or '-'} hacia {alert.get('dest_ip') or '-'} | "
+                f"Estado: {alert.get('status') or 'sin estado'}"
+            ),
+            f"Creada: {format_datetime(alert.get('created_at')) or 'sin fecha'}"
+        )
+        for alert in recent_alerts
+    ]
+
+    if not activity_items:
+        activity_items = [
+            build_activity_item(
+                "Sin alertas",
+                "No hay alertas recientes",
+                "Cuando el motor detecte anomalias o ataques, el feed operativo aparecera aqui."
+            )
+        ]
+
+    return {
+        "page_title": "Panel SOC Analyst",
+        "panel_class": "soc-panel",
+        "role_label": "SOC Analyst",
+        "title": "Centro de monitoreo y respuesta",
+        "subtitle": (
+            f"Bienvenido, {username}. Este panel te ayuda a priorizar alertas, correlacionar eventos "
+            "y coordinar medidas de contencion con rapidez."
+        ),
+        "hero_kicker": "Triage activo",
+        "hero_title": "Eventos sospechosos convertidos en decisiones operativas",
+        "hero_description": (
+            "Aqui se concentra el trabajo del analista: validar riesgo, abrir contexto y escalar acciones "
+            "cuando la red muestra senales de ataque o comportamiento anomalo."
+        ),
+        "status_label": f"{open_alerts} abiertas" if open_alerts else "Estable",
+        "hero_link": {"href": url_for('list_alerts'), "label": "Ver alertas"},
+        "stats": [
+            {"label": "Alertas totales", "value": total_alerts, "hint": "Volumen acumulado"},
+            {"label": "Alertas abiertas", "value": open_alerts, "hint": "Pendientes de analisis"},
+            {"label": "Criticas activas", "value": critical_alerts, "hint": "Requieren prioridad alta"},
+            {"label": "Eventos sospechosos", "value": suspicious_events, "hint": f"Ataques: {attack_events}"}
+        ],
+        "focus": {
+            "title": "Linea de trabajo SOC",
+            "description": "Lo que deberia quedar visible apenas entras al panel.",
+            "items": [
+                build_focus_item("Triage inicial", f"{open_alerts} alertas siguen abiertas y necesitan clasificacion o cierre."),
+                build_focus_item("Escalamiento critico", f"{critical_alerts} alertas criticas ameritan seguimiento inmediato."),
+                build_focus_item("Correlacion de eventos", f"El sistema registra {attack_events} eventos etiquetados como ataque y {suspicious_events} sospechosos."),
+                build_focus_item("Respuesta coordinada", "Si una amenaza requiere contencion, puedes generar una solicitud directa al equipo de red.")
+            ]
+        },
+        "actions": {
+            "title": "Accesos rapidos",
+            "description": "Vistas mas usadas durante el analisis diario.",
+            "items": [
+                build_action_item(url_for('list_alerts'), "AL", "Cola de alertas", "Abrir la lista completa con filtros de severidad y estado."),
+                build_action_item(url_for('list_alerts', status='open'), "OP", "Solo abiertas", "Ir directo a los casos que siguen pendientes."),
+                build_action_item(url_for('list_events'), "EV", "Eventos", "Correlacionar trafico, etiquetas y detalles tecnicos."),
+                build_action_item(url_for('create_firewall_request'), "FW", "Contencion", "Solicitar bloqueo o cuarentena al equipo NetAdmin.")
+            ]
+        },
+        "activity": {
+            "title": "Alertas recientes",
+            "description": "Feed corto para no perder el contexto operativo del turno.",
+            "link": {"href": url_for('list_alerts'), "label": "Abrir vista completa"},
+            "items": activity_items
+        },
+        "objective": build_system_objective(
+            "Tu rol convierte la deteccion en accion: validar, priorizar y empujar la respuesta antes de que el incidente escale."
+        )
+    }
+
+def build_netadmin_dashboard_context(username):
+    requested_requests = 0
+    validated_requests = 0
+    applied_requests = 0
+    recent_requests = []
+    collectors = get_collectors_catalog()
+    collectors_issue_count = sum(1 for collector in collectors if collector.get("status") in ("warning", "offline"))
+
+    try:
+        conn = get_connection()
+        try:
+            with conn.cursor() as cursor:
+                requested_requests = int(fetch_scalar(
+                    cursor,
+                    "SELECT COUNT(*) AS total FROM firewall_requests WHERE status = 'requested'"
+                ))
+                validated_requests = int(fetch_scalar(
+                    cursor,
+                    "SELECT COUNT(*) AS total FROM firewall_requests WHERE status = 'validated'"
+                ))
+                applied_requests = int(fetch_scalar(
+                    cursor,
+                    "SELECT COUNT(*) AS total FROM firewall_requests WHERE status = 'applied'"
+                ))
+
+                cursor.execute("""
+                    SELECT fr.id, fr.source_ip, fr.dest_ip, fr.port, fr.protocol,
+                           fr.status, fr.created_at, u1.username AS requested_by_name
+                    FROM firewall_requests fr
+                    JOIN users u1 ON fr.requested_by = u1.id
+                    ORDER BY fr.created_at DESC
+                    LIMIT 4
+                """)
+                recent_requests = cursor.fetchall()
+        finally:
+            conn.close()
+    except Exception:
+        recent_requests = []
+
+    activity_items = [
+        build_activity_item(
+            request_item.get("status") or "sin estado",
+            f"Solicitud #{request_item.get('id')}",
+            (
+                f"{request_item.get('source_ip') or '-'} -> {request_item.get('dest_ip') or '-'} | "
+                f"{request_item.get('protocol') or '-'}:{request_item.get('port') or '-'}"
+            ),
+            (
+                f"Solicitada por {request_item.get('requested_by_name') or 'desconocido'} | "
+                f"{format_datetime(request_item.get('created_at')) or 'sin fecha'}"
+            )
+        )
+        for request_item in recent_requests
+    ]
+
+    if not activity_items:
+        activity_items = [
+            build_activity_item(
+                "Collectors",
+                "Sin solicitudes recientes",
+                "Mientras tanto, usa este espacio para revisar el estado de collectors y la continuidad de la captura."
+            )
+        ]
+
+    return {
+        "page_title": "Panel NetAdmin",
+        "panel_class": "netadmin-panel",
+        "role_label": "NetAdmin",
+        "title": "Centro de contencion y salud de red",
+        "subtitle": (
+            f"Bienvenido, {username}. Aqui validas solicitudes de firewall, aplicas contencion "
+            "y verificas la estabilidad de los collectors distribuidos."
+        ),
+        "hero_kicker": "Operacion de red",
+        "hero_title": "La respuesta tecnica que ejecuta la contencion del IDS",
+        "hero_description": (
+            "El panel prioriza solicitudes accionables y te deja ver rapidamente si los collectors "
+            "siguen alimentando al sistema con visibilidad confiable."
+        ),
+        "status_label": f"{requested_requests} por validar" if requested_requests else "En linea",
+        "hero_link": {"href": url_for('collectors_status'), "label": "Ver collectors"},
+        "stats": [
+            {"label": "Solicitudes nuevas", "value": requested_requests, "hint": "Esperan validacion"},
+            {"label": "Listas para aplicar", "value": validated_requests, "hint": "Cambios preparados"},
+            {"label": "Acciones aplicadas", "value": applied_requests, "hint": "Contencion ejecutada"},
+            {"label": "Collectors con alerta", "value": collectors_issue_count, "hint": f"De {len(collectors)} sensores"}
+        ],
+        "focus": {
+            "title": "Lectura operativa del rol",
+            "description": "Un resumen rapido para saber donde concentrar la atencion.",
+            "items": [
+                build_focus_item("Validacion pendiente", f"{requested_requests} solicitudes siguen esperando revision antes de tocar la red."),
+                build_focus_item("Aplicacion de cambios", f"{validated_requests} reglas ya estan listas para ejecutarse en firewall."),
+                build_focus_item("Continuidad de captura", f"{collectors_issue_count} collectors presentan warning u offline y pueden reducir visibilidad."),
+                build_focus_item("Coordinacion con SOC", f"Se han aplicado {applied_requests} acciones de contencion registradas en el flujo.")
+            ]
+        },
+        "actions": {
+            "title": "Accesos rapidos",
+            "description": "Entradas practicas para revisar cola, aplicar cambios y comprobar telemetria.",
+            "items": [
+                build_action_item(url_for('list_firewall_requests'), "FR", "Solicitudes", "Abrir la lista completa de requerimientos de firewall."),
+                build_action_item(url_for('list_firewall_requests', status='requested'), "RV", "Por validar", "Ir directo a los pedidos nuevos del SOC."),
+                build_action_item(url_for('list_firewall_requests', status='validated'), "AP", "Listas para aplicar", "Ver cambios aprobados pendientes de ejecucion."),
+                build_action_item(url_for('collectors_status'), "CL", "Collectors", "Revisar disponibilidad, retrasos y nodos sin conexion.")
+            ]
+        },
+        "activity": {
+            "title": "Flujo reciente de solicitudes",
+            "description": "Resumen corto para no perder el hilo de las medidas de contencion.",
+            "link": {"href": url_for('list_firewall_requests'), "label": "Abrir cola completa"},
+            "items": activity_items
+        },
+        "objective": build_system_objective(
+            "Tu papel es ejecutar la respuesta tecnica sin perder observabilidad: contienes amenazas y cuidas la salud de la red que alimenta al IDS."
+        )
+    }
+
+def build_auditor_dashboard_context(username):
+    total_logs = 0
+    logs_today = 0
+    distinct_users = 0
+    tracked_entities = 0
+    top_actions = []
+    recent_logs = []
+
+    try:
+        conn = get_connection()
+        try:
+            with conn.cursor() as cursor:
+                total_logs = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM audit_log"))
+                logs_today = int(fetch_scalar(
+                    cursor,
+                    "SELECT COUNT(*) AS total FROM audit_log WHERE DATE(created_at) = CURDATE()"
+                ))
+                distinct_users = int(fetch_scalar(
+                    cursor,
+                    "SELECT COUNT(DISTINCT user_id) AS total FROM audit_log WHERE user_id IS NOT NULL"
+                ))
+                tracked_entities = int(fetch_scalar(
+                    cursor,
+                    """
+                    SELECT COUNT(DISTINCT entity_type) AS total
+                    FROM audit_log
+                    WHERE entity_type IS NOT NULL AND entity_type <> ''
+                    """
+                ))
+
+                cursor.execute("""
+                    SELECT action, COUNT(*) AS total
+                    FROM audit_log
+                    GROUP BY action
+                    ORDER BY total DESC
+                    LIMIT 4
+                """)
+                top_actions = cursor.fetchall()
+
+                cursor.execute("""
+                    SELECT al.id, al.action, al.entity_type, al.details, al.created_at, u.username
+                    FROM audit_log al
+                    LEFT JOIN users u ON al.user_id = u.id
+                    ORDER BY al.created_at DESC
+                    LIMIT 4
+                """)
+                recent_logs = cursor.fetchall()
+        finally:
+            conn.close()
+    except Exception:
+        top_actions = []
+        recent_logs = []
+
+    focus_items = [
+        build_focus_item(
+            action_item.get("action") or "accion desconocida",
+            f"Registrada {action_item.get('total') or 0} veces en el historial del sistema."
+        )
+        for action_item in top_actions
+    ]
+
+    while len(focus_items) < 4:
+        defaults = [
+            build_focus_item("Trazabilidad", "Todas las acciones relevantes deben poder reconstruirse con fecha, usuario e IP."),
+            build_focus_item("Cumplimiento", "La evidencia operativa ayuda a sostener revisiones internas y externas."),
+            build_focus_item("Cambios sensibles", "Usuarios, modelos y acciones de contencion son focos naturales de revision."),
+            build_focus_item("Retencion", "Una bitacora consistente mejora el analisis posterior a incidentes.")
+        ]
+        focus_items = (focus_items + defaults)[:4]
+
+    activity_items = [
+        build_activity_item(
+            log.get("action") or "evento",
+            f"Registro #{log.get('id')}",
+            (
+                f"Usuario: {log.get('username') or 'System'} | "
+                f"Entidad: {log.get('entity_type') or 'sin entidad'}"
+            ),
+            format_datetime(log.get("created_at")) or "sin fecha"
+        )
+        for log in recent_logs
+    ]
+
+    if not activity_items:
+        activity_items = [
+            build_activity_item(
+                "Bitacora",
+                "No hay registros recientes visibles",
+                "Cuando el sistema o los usuarios ejecuten acciones relevantes, apareceran aqui."
+            )
+        ]
+
+    return {
+        "page_title": "Panel Auditor",
+        "panel_class": "auditor-panel",
+        "role_label": "Auditor",
+        "title": "Centro de trazabilidad y cumplimiento",
+        "subtitle": (
+            f"Bienvenido, {username}. Este panel resume la bitacora del sistema para revisar accesos, "
+            "acciones administrativas y evidencia operativa."
+        ),
+        "hero_kicker": "Evidencia operativa",
+        "hero_title": "Todo cambio importante debe poder explicarse y reconstruirse",
+        "hero_description": (
+            "La auditoria no solo mira el pasado: ayuda a verificar que la respuesta a incidentes, "
+            "la administracion de usuarios y el ciclo de modelos queden correctamente documentados."
+        ),
+        "status_label": f"{logs_today} hoy" if logs_today else "Activo",
+        "hero_link": {"href": url_for('audit_log_list'), "label": "Abrir audit log"},
+        "stats": [
+            {"label": "Registros totales", "value": total_logs, "hint": "Historico disponible"},
+            {"label": "Registros hoy", "value": logs_today, "hint": "Actividad reciente"},
+            {"label": "Usuarios trazados", "value": distinct_users, "hint": "Con eventos auditados"},
+            {"label": "Tipos de entidad", "value": tracked_entities, "hint": "Cobertura de evidencia"}
+        ],
+        "focus": {
+            "title": "Senales a revisar",
+            "description": "Patrones y frentes que ayudan a orientar una revision rapida.",
+            "items": focus_items
+        },
+        "actions": {
+            "title": "Accesos rapidos",
+            "description": "Filtros utiles para moverte por la evidencia sin perder tiempo.",
+            "items": [
+                build_action_item(url_for('audit_log_list'), "LG", "Bitacora completa", "Abrir el registro general del sistema."),
+                build_action_item(url_for('audit_log_list', action='login'), "IN", "Inicios de sesion", "Revisar rastros de acceso y autenticacion."),
+                build_action_item(url_for('audit_log_list', entity_type='user'), "US", "Cambios de usuarios", "Filtrar evidencia vinculada a cuentas y roles."),
+                build_action_item(url_for('audit_log_list', action='approve_model_request'), "ML", "Aprobaciones ML", "Ver acciones ligadas al flujo de modelos.")
+            ]
+        },
+        "activity": {
+            "title": "Ultimos registros",
+            "description": "Instantanea corta del rastro de auditoria reciente.",
+            "link": {"href": url_for('audit_log_list'), "label": "Abrir historial completo"},
+            "items": activity_items
+        },
+        "objective": build_system_objective(
+            "Tu valor en la plataforma es preservar confianza: confirmar que cada acceso, cambio y respuesta tenga evidencia clara y verificable."
+        )
+    }
+
+def build_ml_dashboard_context(username):
+    total_models = 0
+    active_models = 0
+    pending_model_requests = 0
+    dataset_count = 0
+    best_accuracy = "0%"
+    best_model_label = "Sin modelo activo"
+    recent_models = []
+
+    try:
+        conn = get_connection()
+        try:
+            with conn.cursor() as cursor:
+                total_models = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM models"))
+                active_models = int(fetch_scalar(cursor, "SELECT COUNT(*) AS total FROM models WHERE is_active = 1"))
+                pending_model_requests = int(fetch_scalar(
+                    cursor,
+                    "SELECT COUNT(*) AS total FROM model_requests WHERE status = 'pending'"
+                ))
+                dataset_count = int(fetch_scalar(
+                    cursor,
+                    """
+                    SELECT COUNT(DISTINCT dataset_name) AS total
+                    FROM models
+                    WHERE dataset_name IS NOT NULL AND dataset_name <> ''
+                    """
+                ))
+                best_accuracy = format_percentage_value(fetch_scalar(
+                    cursor,
+                    "SELECT MAX(accuracy) AS total FROM models",
+                    key="total",
+                    default=0
+                ))
+
+                cursor.execute("""
+                    SELECT name, version, accuracy
+                    FROM models
+                    ORDER BY COALESCE(accuracy, 0) DESC, created_at DESC
+                    LIMIT 1
+                """)
+                best_model = cursor.fetchone()
+                if best_model:
+                    best_model_label = f"{best_model.get('name')} v{best_model.get('version')}"
+
+                cursor.execute("""
+                    SELECT id, name, version, model_type, dataset_name, accuracy, created_at
+                    FROM models
+                    ORDER BY created_at DESC
+                    LIMIT 4
+                """)
+                recent_models = cursor.fetchall()
+        finally:
+            conn.close()
+    except Exception:
+        recent_models = []
+
+    activity_items = [
+        build_activity_item(
+            model.get("model_type") or "modelo",
+            f"{model.get('name') or 'Modelo'} v{model.get('version') or '-'}",
+            f"Dataset: {model.get('dataset_name') or 'no especificado'}",
+            (
+                f"Accuracy: {format_percentage_value(model.get('accuracy'))} | "
+                f"{format_datetime(model.get('created_at')) or 'sin fecha'}"
+            )
+        )
+        for model in recent_models
+    ]
+
+    if not activity_items:
+        activity_items = [
+            build_activity_item(
+                "Sin versiones",
+                "Aun no hay modelos registrados",
+                "Cuando empieces a cargar versiones y metricas, este feed mostrara su evolucion."
+            )
+        ]
+
+    return {
+        "page_title": "Panel ML Engineer",
+        "panel_class": "ml-panel",
+        "role_label": "ML Engineer",
+        "title": "Centro de modelos y mejora continua",
+        "subtitle": (
+            f"Bienvenido, {username}. Aqui organizas versiones, metricas y solicitudes de promocion "
+            "para que el motor de deteccion mejore sin perder control."
+        ),
+        "hero_kicker": "Ciclo del modelo",
+        "hero_title": "El motor de deteccion tambien necesita un tablero claro",
+        "hero_description": (
+            "Este espacio conecta catalogo, metricas y promociones para que el trabajo de ML tenga "
+            "impacto visible sobre la calidad del IDS."
+        ),
+        "status_label": f"{pending_model_requests} pendientes" if pending_model_requests else "Listo",
+        "hero_link": {"href": url_for('list_models'), "label": "Ver modelos"},
+        "stats": [
+            {"label": "Modelos registrados", "value": total_models, "hint": "Versiones disponibles"},
+            {"label": "Modelos activos", "value": active_models, "hint": "En produccion"},
+            {"label": "Solicitudes pendientes", "value": pending_model_requests, "hint": "Promociones por revisar"},
+            {"label": "Mejor accuracy", "value": best_accuracy, "hint": best_model_label}
+        ],
+        "focus": {
+            "title": "Lectura rapida del pipeline",
+            "description": "Puntos que ayudan a orientar el trabajo del rol apenas entra al panel.",
+            "items": [
+                build_focus_item("Catalogo de versiones", f"Hay {total_models} modelos registrados para comparar, revisar y reutilizar."),
+                build_focus_item("Promocion a produccion", f"{pending_model_requests} solicitudes de promote siguen esperando revision."),
+                build_focus_item("Cobertura de datasets", f"Se han usado {dataset_count} datasets distintos dentro del catalogo actual."),
+                build_focus_item("Modelo lider", f"{best_model_label} encabeza las metricas visibles con {best_accuracy}.")
+            ]
+        },
+        "actions": {
+            "title": "Accesos rapidos",
+            "description": "Vistas practicas para moverte entre registro, metricas y aprobaciones.",
+            "items": [
+                build_action_item(url_for('create_model'), "NM", "Nuevo modelo", "Registrar una version con metadatos y metricas."),
+                build_action_item(url_for('list_models'), "MD", "Catalogo", "Explorar el inventario completo de modelos."),
+                build_action_item(url_for('list_model_requests'), "PR", "Promociones", "Consultar solicitudes de despliegue o promote.")
+            ]
+        },
+        "activity": {
+            "title": "Versiones recientes",
+            "description": "Feed compacto para visualizar la evolucion del trabajo de ML.",
+            "link": {"href": url_for('list_models'), "label": "Abrir catalogo completo"},
+            "items": activity_items
+        },
+        "objective": build_system_objective(
+            "Tu rol refuerza el nucleo del IDS: mejorar las metricas del detector y convertir aprendizaje en versiones confiables para produccion."
+        )
+    }
 # =========================
 # EVENTS MODULE
 # =========================
@@ -1223,69 +2101,53 @@ def toggle_user_status(user_id):
 @login_required
 @role_required('admin', 'soc_analyst', 'operator')
 def list_events():
-    source_ip = request.args.get('source_ip', '').strip()
-    dest_ip = request.args.get('dest_ip', '').strip()
-    protocol = request.args.get('protocol', '').strip()
-    label = request.args.get('label', '').strip()
-    status = request.args.get('status', '').strip()
-
-    query = """
-        SELECT id, timestamp, source_ip, dest_ip, source_port, dest_port,
-               protocol, size, label, score, status
-        FROM events
-        WHERE 1=1
-    """
-    params = []
-
-    if source_ip:
-        query += " AND source_ip LIKE %s"
-        params.append(f"%{source_ip}%")
-
-    if dest_ip:
-        query += " AND dest_ip LIKE %s"
-        params.append(f"%{dest_ip}%")
-
-    if protocol:
-        query += " AND protocol = %s"
-        params.append(protocol)
-
-    if label:
-        query += " AND label = %s"
-        params.append(label)
-
-    if status:
-        query += " AND status = %s"
-        params.append(status)
-
-    query += " ORDER BY timestamp DESC"
-
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, params)
-            events = cursor.fetchall()
-    finally:
-        conn.close()
+    filters = normalize_event_filters(request.args)
+    events = fetch_events_data(filters=filters, limit=100)
+    event_summary = fetch_event_summary(filters=filters)
 
     return render_template(
         'events_list.html',
         events=events,
-        source_ip=source_ip,
-        dest_ip=dest_ip,
-        protocol=protocol,
-        label=label,
-        status=status
+        event_summary=event_summary,
+        source_ip=filters["source_ip"],
+        dest_ip=filters["dest_ip"],
+        protocol=filters["protocol"],
+        label=filters["label"],
+        status=filters["status"]
     )
+
+@app.route('/api/events-feed')
+@login_required
+@role_required('admin', 'soc_analyst', 'operator')
+def api_events_feed():
+    filters = normalize_event_filters(request.args)
+    limit = parse_int_arg(request.args.get("limit"), default=25, minimum=1, maximum=100)
+
+    return jsonify({
+        "filters": filters,
+        "summary": fetch_event_summary(filters=filters),
+        "events": fetch_events_data(filters=filters, limit=limit)
+    })
 
 @app.route('/events/<int:event_id>')
 @login_required
 @role_required('admin', 'soc_analyst', 'operator')
 def event_detail(event_id):
+    event_columns = get_table_columns("events")
+    select_columns = [
+        column if column in event_columns else f"NULL AS {column}"
+        for column in [
+            "id", "timestamp", "source_ip", "dest_ip", "source_port", "dest_port",
+            "protocol", "size", "label", "score", "status", "raw_log",
+            "model_version", "flags"
+        ]
+    ]
+
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT *
+            cursor.execute(f"""
+                SELECT {", ".join(select_columns)}
                 FROM events
                 WHERE id = %s
             """, (event_id,))
@@ -1297,7 +2159,7 @@ def event_detail(event_id):
     finally:
         conn.close()
 
-    return render_template('event_detail.html', event=event)
+    return render_template('event_detail.html', event=serialize_event_record(event))
 
 
 # =========================

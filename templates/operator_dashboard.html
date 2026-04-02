@@ -1,61 +1,338 @@
 {% extends 'base.html' %}
 
-{% block title %}Panel Operator{% endblock %}
+{% block title %}Dashboard Principal{% endblock %}
 
 {% block content %}
-<div class="dashboard-page">
-    <div class="dashboard-card operator-panel">
-        <div class="dashboard-top">
-            <div>
-                <p class="dashboard-role">Operator</p>
-                <h1>Centro operativo</h1>
-                <p class="dashboard-subtitle">
-                    Bienvenido, {{ username }}. Supervisa el estado general del sistema y consulta la actividad operativa diaria.
-                </p>
+<div class="dashboard-page operator-dashboard-page">
+    <div class="dashboard-card dashboard-card-wide operator-panel operator-dashboard-shell">
+        <div class="operator-topbar">
+            <div class="operator-topbar-item">
+                <span class="operator-topbar-label">Sesion</span>
+                <strong>Personal autorizado</strong>
             </div>
-            <div class="status-badge">Activo</div>
+            <div class="operator-topbar-item">
+                <span class="operator-topbar-label">Usuario activo</span>
+                <strong>{{ username }}</strong>
+            </div>
+            <div class="operator-topbar-item">
+                <span class="operator-topbar-label">Estado del sistema</span>
+                <strong id="topbarStatus">Sincronizando</strong>
+            </div>
+            <div class="operator-topbar-item">
+                <span class="operator-topbar-label">Ultima actualizacion</span>
+                <strong id="topbarUpdated">--:--:--</strong>
+            </div>
         </div>
 
-        <div class="dashboard-grid">
-            <a href="{{ url_for('operator_live_dashboard') }}" class="dashboard-action">
-                <div class="action-icon">📊</div>
-                <div>
-                    <h3>Ver dashboard</h3>
-                    <p>Consultar el estado general, actividad reciente y métricas básicas.</p>
+        <div class="dashboard-top dashboard-top-balanced">
+            <div class="hero-copy">
+                <p class="dashboard-role">Operator</p>
+                <h1>Dashboard principal del sistema</h1>
+                <p class="dashboard-subtitle">
+                    Bienvenido, {{ username }}. Desde este panel puedes validar el acceso al sistema,
+                    monitorear el comportamiento de la red y revisar los eventos detectados en tiempo real.
+                </p>
+            </div>
+            <div class="hero-side-card">
+                <span class="hero-kicker">Centro de monitoreo</span>
+                <strong>Vista integrada de red, eventos y operación</strong>
+                <p>Panel ampliado con actualización automática para que la información importante esté visible apenas ingresas.</p>
+                <div class="hero-side-actions">
+                    <span class="status-badge" id="overviewStatus">Actualizando</span>
+                    <a href="{{ url_for('list_events') }}" class="ghost-link">Ir a eventos</a>
                 </div>
-            </a>
+            </div>
+        </div>
 
-            <a href="{{ url_for('list_events') }}" class="dashboard-action">
-                <div class="action-icon">📂</div>
-                <div>
-                    <h3>Consultar eventos</h3>
-                    <p>Revisar registros operativos y actividad del sistema en tiempo real.</p>
+        <div class="stats-grid">
+            <div class="stat-card stat-card-total">
+                <div class="stat-card-head">
+                    <div>
+                        <span>Eventos totales</span>
+                        <small>Acumulado general</small>
+                    </div>
+                    <div class="stat-card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" class="stat-card-svg">
+                            <path d="M7 7.5H17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <path d="M7 12H17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <path d="M7 16.5H13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <rect x="4.5" y="4.5" width="15" height="15" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.6"></rect>
+                        </svg>
+                    </div>
                 </div>
-            </a>
+                <strong id="summaryTotalEvents">{{ dashboard_data.event_summary.total_events }}</strong>
+            </div>
+            <div class="stat-card stat-card-attack">
+                <div class="stat-card-head">
+                    <div>
+                        <span>Ataques detectados</span>
+                        <small>Eventos clasificados</small>
+                    </div>
+                    <div class="stat-card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" class="stat-card-svg">
+                            <path d="M12 4.5L18 7V11.5C18 15.2 15.5 18.4 12 19.5C8.5 18.4 6 15.2 6 11.5V7L12 4.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path>
+                            <path d="M9.5 12L11.2 13.7L14.8 10.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </div>
+                </div>
+                <strong id="summaryAttacks">{{ dashboard_data.event_summary.total_attacks }}</strong>
+            </div>
+            <div class="stat-card stat-card-suspicious">
+                <div class="stat-card-head">
+                    <div>
+                        <span>Eventos sospechosos</span>
+                        <small>Requieren revisión</small>
+                    </div>
+                    <div class="stat-card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" class="stat-card-svg">
+                            <path d="M12 5L19 18H5L12 5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path>
+                            <path d="M12 10V13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <circle cx="12" cy="16" r="1" fill="currentColor"></circle>
+                        </svg>
+                    </div>
+                </div>
+                <strong id="summarySuspicious">{{ dashboard_data.event_summary.total_suspicious }}</strong>
+            </div>
+            <div class="stat-card stat-card-new">
+                <div class="stat-card-head">
+                    <div>
+                        <span>Eventos nuevos</span>
+                        <small>Ingreso reciente</small>
+                    </div>
+                    <div class="stat-card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" class="stat-card-svg">
+                            <path d="M12 5V19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <path d="M5 12H19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+                        </svg>
+                    </div>
+                </div>
+                <strong id="summaryNew">{{ dashboard_data.event_summary.total_new }}</strong>
+            </div>
+        </div>
 
-            <a href="{{ url_for('services_status') }}" class="dashboard-action">
-                <div class="action-icon">🖥️</div>
-                <div>
-                    <h3>Estado de servicios</h3>
-                    <p>Verificar disponibilidad de procesos, backend y componentes principales.</p>
+        <div class="operator-overview-grid">
+            <section class="chart-card live-summary-card">
+                <div class="section-head">
+                    <div>
+                        <h3>Resumen operativo en vivo</h3>
+                        <p>Indicadores obtenidos desde el backend de monitoreo.</p>
+                    </div>
+                    <span class="refresh-label" id="overviewRefresh">Sincronizando...</span>
                 </div>
-            </a>
-            <a href="{{ url_for('operator_history') }}" class="dashboard-action">
-                <div class="action-icon">📈</div>
-                <div>
-                    <h3>Historial de tráfico</h3>
-                    <p>Revisar métricas históricas y tendencias operativas a lo largo del tiempo.</p>
-                </div>
-            </a>
 
-            <a href="{{ url_for('logout') }}" class="dashboard-action logout-card">
-                <div class="action-icon">⏻</div>
-                <div>
-                    <h3>Cerrar sesión</h3>
-                    <p>Salir de forma segura del entorno operativo.</p>
+                <div class="live-metrics-grid">
+                    <div class="live-metric">
+                        <span>Paquetes en 20s</span>
+                        <strong id="livePackets">{{ dashboard_data.live_metrics.total_packets }}</strong>
+                    </div>
+                    <div class="live-metric">
+                        <span>Bytes en 20s</span>
+                        <strong id="liveBytes">{{ dashboard_data.live_metrics.total_bytes }}</strong>
+                    </div>
+                    <div class="live-metric">
+                        <span>Protocolo dominante</span>
+                        <strong id="liveProtocol">{{ dashboard_data.live_metrics.top_protocol }}</strong>
+                    </div>
+                    <div class="live-metric">
+                        <span>Origen principal</span>
+                        <strong id="liveSource">{{ dashboard_data.live_metrics.top_source_ip }}</strong>
+                    </div>
                 </div>
-            </a>
+            </section>
+
+            <section class="chart-card">
+                <div class="section-head">
+                    <div>
+                        <h3>Accesos rápidos</h3>
+                        <p>Funciones requeridas para la operación diaria.</p>
+                    </div>
+                </div>
+
+                <div class="quick-links-grid">
+                    <a href="{{ url_for('operator_live_dashboard') }}" class="dashboard-action compact-action">
+                        <div class="action-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" class="quick-action-icon">
+                                <path d="M4 17L9 12L13 15L20 8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <path d="M15 8H20V13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3>Tráfico en vivo</h3>
+                            <p>Visualización de métricas y gráficas en tiempo real.</p>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('list_events') }}" class="dashboard-action compact-action">
+                        <div class="action-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" class="quick-action-icon">
+                                <path d="M6 5.5H18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+                                <path d="M6 10.5H18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+                                <path d="M6 15.5H13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+                                <circle cx="17.5" cy="15.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.9"></circle>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3>Eventos de red</h3>
+                            <p>Consulta, filtrado y detalle de eventos registrados.</p>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('operator_history') }}" class="dashboard-action compact-action">
+                        <div class="action-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" class="quick-action-icon">
+                                <path d="M12 7V12L15.5 14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <path d="M5.5 9H3V6.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <path d="M4.2 12A7.8 7.8 0 1 0 6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3>Historial</h3>
+                            <p>Métricas persistidas para revisar comportamiento previo.</p>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('services_status') }}" class="dashboard-action compact-action">
+                        <div class="action-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" class="quick-action-icon">
+                                <path d="M12 4.5L13.1 6.8L15.6 7.2L13.8 9L14.2 11.5L12 10.3L9.8 11.5L10.2 9L8.4 7.2L10.9 6.8L12 4.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path>
+                                <path d="M19 12.5V13.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+                                <path d="M5 12.5V13.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+                                <path d="M16.95 17.05L16.25 17.75" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+                                <path d="M7.75 17.75L7.05 17.05" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3>Servicios</h3>
+                            <p>Estado de los componentes principales del sistema.</p>
+                        </div>
+                    </a>
+                </div>
+            </section>
+        </div>
+
+        <section class="chart-card table-section">
+            <div class="section-head">
+                <div class="table-title-group">
+                    <div class="table-section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" class="table-section-svg">
+                            <path d="M5 6.5H19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <path d="M5 12H19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <path d="M5 17.5H14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            <circle cx="17.5" cy="17.5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"></circle>
+                        </svg>
+                    </div>
+                    <div class="table-title-copy">
+                    <h3>Eventos recientes</h3>
+                    <p>Últimos eventos disponibles para revisión rápida desde el dashboard principal.</p>
+                    </div>
+                </div>
+                <a href="{{ url_for('list_events') }}" class="btn-secondary inline-button">Abrir vista completa</a>
+            </div>
+
+            <div class="users-table-container">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Origen</th>
+                            <th>Destino</th>
+                            <th>Protocolo</th>
+                            <th>Etiqueta</th>
+                            <th>Estado</th>
+                            <th>Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentEventsBody">
+                        {% for event in dashboard_data.recent_events %}
+                        <tr>
+                            <td>{{ event.id }}</td>
+                            <td>{{ event.timestamp or '-' }}</td>
+                            <td>{{ event.source_ip or '-' }}</td>
+                            <td>{{ event.dest_ip or '-' }}</td>
+                            <td>{{ event.protocol or '-' }}</td>
+                            <td><span class="event-pill {{ event.label or 'neutral' }}">{{ event.label or 'sin clasificar' }}</span></td>
+                            <td><span class="event-pill neutral">{{ event.status or 'sin estado' }}</span></td>
+                            <td><a href="{{ url_for('event_detail', event_id=event.id) }}" class="btn-small">Ver</a></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="empty-state-cell">Todavía no hay eventos registrados.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('logout') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Cerrar sesión</a>
         </div>
     </div>
 </div>
+
+<script>
+    const operatorOverviewUrl = "{{ url_for('api_operator_overview') }}";
+    const recentEventsBody = document.getElementById('recentEventsBody');
+
+    function buildEventRow(event) {
+        const labelClass = event.label || 'neutral';
+        const labelText = event.label || 'sin clasificar';
+        const statusText = event.status || 'sin estado';
+        return `
+            <tr>
+                <td>${event.id ?? '-'}</td>
+                <td>${event.timestamp ?? '-'}</td>
+                <td>${event.source_ip ?? '-'}</td>
+                <td>${event.dest_ip ?? '-'}</td>
+                <td>${event.protocol ?? '-'}</td>
+                <td><span class="event-pill ${labelClass}">${labelText}</span></td>
+                <td><span class="event-pill neutral">${statusText}</span></td>
+                <td><a href="/events/${event.id}" class="btn-small">Ver</a></td>
+            </tr>
+        `;
+    }
+
+    function updateOverview(data) {
+        document.getElementById('summaryTotalEvents').textContent = data.event_summary.total_events;
+        document.getElementById('summaryAttacks').textContent = data.event_summary.total_attacks;
+        document.getElementById('summarySuspicious').textContent = data.event_summary.total_suspicious;
+        document.getElementById('summaryNew').textContent = data.event_summary.total_new;
+        document.getElementById('livePackets').textContent = data.live_metrics.total_packets;
+        document.getElementById('liveBytes').textContent = data.live_metrics.total_bytes;
+        document.getElementById('liveProtocol').textContent = data.live_metrics.top_protocol;
+        document.getElementById('liveSource').textContent = data.live_metrics.top_source_ip;
+        document.getElementById('overviewStatus').textContent = 'En línea';
+        document.getElementById('topbarStatus').textContent = 'En línea';
+        const refreshedAt = new Date().toLocaleTimeString();
+        document.getElementById('overviewRefresh').textContent = `Actualizado: ${refreshedAt}`;
+        document.getElementById('topbarUpdated').textContent = refreshedAt;
+
+        if (!data.recent_events.length) {
+            recentEventsBody.innerHTML = '<tr><td colspan="8" class="empty-state-cell">Todavía no hay eventos registrados.</td></tr>';
+            return;
+        }
+
+        recentEventsBody.innerHTML = data.recent_events.map(buildEventRow).join('');
+    }
+
+    async function fetchOperatorOverview() {
+        try {
+            const response = await fetch(operatorOverviewUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!response.ok) {
+                throw new Error('No se pudo obtener el resumen operativo.');
+            }
+            const data = await response.json();
+            updateOverview(data);
+        } catch (error) {
+            document.getElementById('overviewStatus').textContent = 'Sin conexión';
+            document.getElementById('topbarStatus').textContent = 'Sin conexión';
+            document.getElementById('overviewRefresh').textContent = 'Reintentando...';
+        }
+    }
+
+    fetchOperatorOverview();
+    setInterval(fetchOperatorOverview, 5000);
+</script>
 {% endblock %}

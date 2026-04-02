@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ dashboard.page_title }}{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-card dashboard-card-wide role-dashboard-shell {{ dashboard.panel_class }}">
+        <div class="dashboard-top dashboard-top-balanced">
+            <div class="hero-copy">
+                <p class="dashboard-role">{{ dashboard.role_label }}</p>
+                <h1>{{ dashboard.title }}</h1>
+                <p class="dashboard-subtitle">{{ dashboard.subtitle }}</p>
+            </div>
+
+            <div class="hero-side-card">
+                <span class="hero-kicker">{{ dashboard.hero_kicker }}</span>
+                <strong>{{ dashboard.hero_title }}</strong>
+                <p>{{ dashboard.hero_description }}</p>
+                <div class="hero-side-actions">
+                    <span class="status-badge">{{ dashboard.status_label }}</span>
+                    {% if dashboard.hero_link %}
+                    <a href="{{ dashboard.hero_link.href }}" class="ghost-link">{{ dashboard.hero_link.label }}</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            {% for stat in dashboard.stats %}
+            <div class="stat-card">
+                <span>{{ stat.label }}</span>
+                <strong>{{ stat.value }}</strong>
+                {% if stat.hint %}
+                <small>{{ stat.hint }}</small>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="role-dashboard-grid">
+            <section class="chart-card">
+                <div class="section-head">
+                    <div>
+                        <h3>{{ dashboard.focus.title }}</h3>
+                        <p>{{ dashboard.focus.description }}</p>
+                    </div>
+                </div>
+
+                <div class="focus-stack">
+                    {% for item in dashboard.focus["items"] %}
+                    <article class="focus-item">
+                        <strong>{{ item.title }}</strong>
+                        <p>{{ item.description }}</p>
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="chart-card">
+                <div class="section-head">
+                    <div>
+                        <h3>{{ dashboard.actions.title }}</h3>
+                        <p>{{ dashboard.actions.description }}</p>
+                    </div>
+                </div>
+
+                <div class="quick-links-grid">
+                    {% for action in dashboard.actions["items"] %}
+                    <a href="{{ action.href }}" class="dashboard-action compact-action">
+                        <div class="action-icon">{{ action.icon }}</div>
+                        <div>
+                            <h3>{{ action.title }}</h3>
+                            <p>{{ action.description }}</p>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <div class="role-dashboard-grid role-dashboard-grid-secondary">
+            <section class="chart-card">
+                <div class="section-head">
+                    <div>
+                        <h3>{{ dashboard.activity.title }}</h3>
+                        <p>{{ dashboard.activity.description }}</p>
+                    </div>
+                    {% if dashboard.activity.link %}
+                    <a href="{{ dashboard.activity.link.href }}" class="btn-secondary inline-button">{{ dashboard.activity.link.label }}</a>
+                    {% endif %}
+                </div>
+
+                <div class="activity-feed">
+                    {% for item in dashboard.activity["items"] %}
+                    <article class="activity-item">
+                        <span class="feed-kicker">{{ item.eyebrow }}</span>
+                        <strong>{{ item.title }}</strong>
+                        <p>{{ item.description }}</p>
+                        {% if item.meta %}
+                        <small class="activity-meta">{{ item.meta }}</small>
+                        {% endif %}
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="chart-card">
+                <div class="section-head">
+                    <div>
+                        <h3>{{ dashboard.objective.title }}</h3>
+                        <p>{{ dashboard.objective.description }}</p>
+                    </div>
+                </div>
+
+                <div class="objective-stage-grid">
+                    {% for stage in dashboard.objective.stages %}
+                    <article class="objective-stage">
+                        <span class="feed-kicker">{{ stage.eyebrow }}</span>
+                        <strong>{{ stage.title }}</strong>
+                        <p>{{ stage.description }}</p>
+                    </article>
+                    {% endfor %}
+                </div>
+
+                <div class="objective-note">
+                    <strong>Como aporta este rol</strong>
+                    <p>{{ dashboard.objective.note }}</p>
+                </div>
+            </section>
+        </div>
+
+        <div style="margin-top:20px;">
+            <a href="{{ url_for('logout') }}" class="btn-primary" style="width:auto; padding:12px 20px;">Cerrar sesion</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

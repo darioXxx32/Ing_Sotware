@@ -1,21 +1,34 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const loginForm = document.getElementById("loginForm");
-    const loginMessage = document.getElementById("loginMessage");
+    const timeElement = document.getElementById("loginClockTime");
+    const dateElement = document.getElementById("loginClockDate");
+    const timeZone = "America/Guayaquil";
 
-    if (loginForm) {
-        loginForm.addEventListener("submit", function(event) {
-            event.preventDefault();
-
-            const username = document.getElementById("username").value.trim();
-            const password = document.getElementById("password").value.trim();
-
-            if (!username || !password) {
-                loginMessage.textContent = "Todos los campos son obligatorios.";
-                return;
-            }
-
-            loginMessage.style.color = "green";
-            loginMessage.textContent = "Formulario válido. Luego conectaremos esto con Flask y MySQL.";
-        });
+    if (!timeElement || !dateElement) {
+        return;
     }
+
+    const timeFormatter = new Intl.DateTimeFormat("es-EC", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+        timeZone
+    });
+
+    const dateFormatter = new Intl.DateTimeFormat("es-EC", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        timeZone
+    });
+
+    function updateClock() {
+        const now = new Date();
+        timeElement.textContent = timeFormatter.format(now);
+        dateElement.textContent = dateFormatter.format(now);
+    }
+
+    updateClock();
+    window.setInterval(updateClock, 1000);
 });
