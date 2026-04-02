@@ -25,10 +25,10 @@ PROJECT_IMAGES_DIR = os.path.join(app.root_path, "Imagenes")
 # =========================
 def get_connection():
     return pymysql.connect(
-        host="127.0.0.1",
+        host="100.49.160.102",
         port=3306,
         user="idsuser",
-        password="idspass",
+        password="UnaClaveFuerte123!",
         database="idsdb",
         cursorclass=pymysql.cursors.DictCursor
     )
