@@ -5,9 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Plataforma IDS{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script>
+        (function () {
+            const themeKey = 'operator-dashboard-theme';
+            const savedTheme = localStorage.getItem(themeKey);
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-operator-theme', savedTheme);
+            }
+        })();
+    </script>
 </head>
 <body>
     {% block content %}{% endblock %}
     <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+    <script>
+        (function () {
+            const themeKey = 'operator-dashboard-theme';
+            const page = document.querySelector('.operator-themed-page, .operator-dashboard-page');
+            const rootTheme = document.documentElement.getAttribute('data-operator-theme');
+
+            if (!page) {
+                return;
+            }
+
+            const savedTheme = localStorage.getItem(themeKey) || rootTheme || 'dark';
+            page.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
+        })();
+    </script>
 </body>
 </html>

@@ -3,23 +3,23 @@
 {% block title %}Login{% endblock %}
 
 {% block content %}
-<div class="login-page">
-    <div class="login-card login-card-formal login-card-horizontal">
-        <div class="login-left login-auth-panel">
-            <div class="login-form-shell login-auth-shell">
-                <div class="login-auth-badge">
+<div class="login-page login-page-reference">
+    <div class="login-ref-shell">
+        <section class="login-ref-form-side">
+            <div class="login-ref-form-card">
+                <div class="login-ref-avatar">
                     <img
                         src="{{ url_for('project_image', filename='logo.png') }}"
                         alt="Logo de la plataforma IDS"
-                        class="login-auth-badge-image"
+                        class="login-ref-avatar-image"
                     >
                 </div>
 
-                <div class="login-form-top">
-                    <span class="login-kicker dark">Acceso institucional</span>
-                    <h2>Iniciar sesion</h2>
-                    <p class="login-helper">
-                        Acceda a la plataforma IDS con su usuario institucional.
+                <div class="login-ref-card-header">
+                    <h1>PLATAFORMA IDS</h1>
+                    <p>
+                        Acceso central al monitoreo de eventos, control por roles
+                        y trazabilidad operativa.
                     </p>
                 </div>
 
@@ -31,65 +31,43 @@
                     {% endif %}
                 {% endwith %}
 
-                <form method="POST" action="{{ url_for('login') }}" class="login-form-panel">
+                <form method="POST" action="{{ url_for('login') }}" class="login-ref-form">
                     <div class="input-group">
                         <label for="username">Usuario o correo</label>
-                        <input type="text" id="username" name="username" placeholder="Ingrese su usuario o correo" required>
+                        <input type="text" id="username" name="username" placeholder="Email" required>
                     </div>
 
                     <div class="input-group">
                         <label for="password">Contrasena</label>
-                        <input type="password" id="password" name="password" placeholder="Ingrese su contrasena" required>
+                        <input type="password" id="password" name="password" placeholder="Password" required>
                     </div>
 
-                    <div class="login-options">
-                        <label class="login-checkbox">
-                            <input type="checkbox" id="rememberMe" name="rememberMe">
-                            <span>Recordarme</span>
-                        </label>
-                        <a href="{{ url_for('forgot_password') }}">Recuperar contrasena</a>
-                    </div>
-
-                    <button type="submit" class="btn-primary login-submit-button">Acceder al sistema</button>
+                    <button type="submit" class="btn-primary login-ref-submit">Sign In</button>
                 </form>
 
-                <div class="login-register login-register-inline">
-                    <p>Si aun no tiene acceso, registre una nueva solicitud.</p>
-                    <a href="{{ url_for('register') }}" class="btn-secondary">Solicitar registro</a>
+                <div class="login-ref-links">
+                    <a href="{{ url_for('forgot_password') }}">Recuperar contrasena</a>
+                    <a href="{{ url_for('register') }}">Solicitar registro</a>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="login-right login-showcase-panel">
-            <div class="login-showcase-shell">
-                <span class="login-kicker login-kicker-showcase">Plataforma IDS</span>
-                <div class="login-showcase-graphic">
-                    <div class="login-showcase-graphic-frame">
-                        <img
-                            src="{{ url_for('project_image', filename='logo.png') }}"
-                            alt="Logo principal de la plataforma IDS"
-                            class="login-showcase-image"
-                        >
-                    </div>
+        <section class="login-ref-brand-side">
+            <div class="login-ref-copy">
+                <span class="login-ref-side-tag">Monitoreo inteligente</span>
+                <div class="login-ref-brand-logo">
+                    <img
+                        src="{{ url_for('project_image', filename='logo.png') }}"
+                        alt="Identidad visual principal de la plataforma IDS"
+                        class="login-ref-brand-logo-image"
+                    >
                 </div>
-
-                <div class="login-showcase-copy">
-                    <h2>PLATAFORMA IDS</h2>
-                    <p>
-                        Monitoreo de eventos, control por roles y trazabilidad en una sola
-                        plataforma para equipos de seguridad y operaciones.
-                    </p>
-                </div>
-
-                <div class="login-showcase-meta">
-                    <div class="login-showcase-time">
-                        <strong id="loginClockTime">--:--:--</strong>
-                        <p id="loginClockDate">Cargando fecha...</p>
-                    </div>
-                    <span class="login-clock-zone">GMT-5 | Guayaquil</span>
-                </div>
+                <p>
+                    Una vista mas limpia para entrar rapido al sistema y reconocer
+                    la plataforma desde el primer momento.
+                </p>
             </div>
-        </div>
+        </section>
     </div>
 </div>
 {% endblock %}

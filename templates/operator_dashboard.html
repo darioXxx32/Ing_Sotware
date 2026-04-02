@@ -3,7 +3,7 @@
 {% block title %}Dashboard Principal{% endblock %}
 
 {% block content %}
-<div class="dashboard-page operator-dashboard-page">
+<div class="dashboard-page operator-dashboard-page operator-themed-page">
     <div class="dashboard-card dashboard-card-wide operator-panel operator-dashboard-shell">
         <div class="operator-topbar">
             <div class="operator-topbar-item">
@@ -21,6 +21,15 @@
             <div class="operator-topbar-item">
                 <span class="operator-topbar-label">Ultima actualizacion</span>
                 <strong id="topbarUpdated">--:--:--</strong>
+            </div>
+            <div class="operator-topbar-item operator-theme-item">
+                <span class="operator-topbar-label">Tema visual</span>
+                <button type="button" class="operator-theme-toggle" id="operatorThemeToggle" aria-pressed="false">
+                    <span class="operator-theme-toggle-track" aria-hidden="true">
+                        <span class="operator-theme-toggle-thumb"></span>
+                    </span>
+                    <span class="operator-theme-toggle-text" id="operatorThemeText">Modo oscuro</span>
+                </button>
             </div>
         </div>
 
@@ -275,6 +284,26 @@
 <script>
     const operatorOverviewUrl = "{{ url_for('api_operator_overview') }}";
     const recentEventsBody = document.getElementById('recentEventsBody');
+    const operatorDashboardPage = document.querySelector('.operator-dashboard-page');
+    const operatorThemeToggle = document.getElementById('operatorThemeToggle');
+    const operatorThemeText = document.getElementById('operatorThemeText');
+    const operatorThemeStorageKey = 'operator-dashboard-theme';
+
+    function applyOperatorTheme(theme) {
+        if (!operatorDashboardPage || !operatorThemeToggle || !operatorThemeText) {
+            return;
+        }
+
+        operatorDashboardPage.dataset.theme = theme;
+        const isLight = theme === 'light';
+        operatorThemeToggle.setAttribute('aria-pressed', String(isLight));
+        operatorThemeText.textContent = isLight ? 'Modo claro' : 'Modo oscuro';
+    }
+
+    function loadOperatorTheme() {
+        const savedTheme = localStorage.getItem(operatorThemeStorageKey);
+        applyOperatorTheme(savedTheme === 'light' ? 'light' : 'dark');
+    }
 
     function buildEventRow(event) {
         const labelClass = event.label || 'neutral';
@@ -330,6 +359,16 @@
             document.getElementById('topbarStatus').textContent = 'Sin conexión';
             document.getElementById('overviewRefresh').textContent = 'Reintentando...';
         }
+    }
+
+    if (operatorThemeToggle) {
+        loadOperatorTheme();
+        operatorThemeToggle.addEventListener('click', () => {
+            const nextTheme = operatorDashboardPage?.dataset.theme === 'light' ? 'dark' : 'light';
+            localStorage.setItem(operatorThemeStorageKey, nextTheme);
+            document.documentElement.setAttribute('data-operator-theme', nextTheme);
+            applyOperatorTheme(nextTheme);
+        });
     }
 
     fetchOperatorOverview();
